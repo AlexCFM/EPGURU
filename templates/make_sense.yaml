@@ -1,0 +1,42 @@
+# Шаблон обработки EPG: MAKE SENSE
+# Правила — данные, а не код. Новый заказчик = новый YAML-файл рядом.
+
+name: MAKE SENSE
+output_name: "EPG_{channel}_{d1}_{m1}_{d2}_{m2}_MAKE_SENSE.xlsx"
+
+# Канал определяется по имени исходного файла (порядок важен)
+channels:
+  - match: ["PLAN B", "PLAN_B", "PLANB"]
+    code: PLAN_B
+  - match: ["9-1-1", "911"]
+    code: "911"
+  - match: ["VESNA"]
+    code: VESNA
+
+# Строка заголовков ищется в первых N строках по этим «якорным» колонкам
+header_anchors: ["Формат", "Название (рус)", "Название эпизода"]
+header_search_rows: 10
+
+rules:
+  - type: drop_columns_prefix        # удалить столбцы, начинающиеся с Unnamed
+    prefix: "unnamed"
+
+  - type: time_floor                 # время вниз до 5 минут, HH:MM
+    columns: ["Время", "Время начала", "Start time", "Time"]
+    step_minutes: 5
+
+  - type: date_format                # дата DD/MM/YYYY
+    columns: ["Дата", "Date"]
+    format: "DD/MM/YYYY"
+
+  - type: replace_exact              # Movie -> х/ф, только точное совпадение
+    columns: ["Формат"]
+    mapping:
+      Movie: "х/ф"
+
+  - type: age_rating                 # 12 -> 12+, 18 years -> 18+
+    columns: ["Возрастное ограничение", "Маркер"]
+
+  - type: clear_if_equal             # очистить эпизод, если совпадает с названием
+    target: "Название эпизода"
+    compare_with: "Название (рус)"
