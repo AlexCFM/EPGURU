@@ -1,6 +1,7 @@
 (() => {
   const $ = (s) => document.querySelector(s);
   const state = { mode: 'epg', channel: '', busy: false, jobs: [] };
+  const EXT = ['.xlsx', '.xlsm', '.xltx', '.xltm', '.xls', '.xml', '.ods', '.csv', '.tsv', '.txt', '.htm', '.html'];
 
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -48,8 +49,8 @@
     $('#lcd-title').textContent = dates ? 'ПОЧИНКА ДАТ' : 'ПРИЁМ EPG';
     $('#drop-big').textContent = dates ? 'ПЕРЕТАЩИ XLSX С ДАТАМИ' : 'ПЕРЕТАЩИ EPG СЮДА';
     $('#drop-small').textContent = dates
-      ? 'любые xlsx: даты текстом, числом, с перепутанными днём и месяцем → DD/MM/YYYY'
-      : 'или нажми, чтобы выбрать файлы .xlsx — можно несколько сразу';
+      ? 'Excel, CSV, XML: даты текстом, числом, с перепутанными днём и месяцем → DD/MM/YYYY'
+      : 'XLSX, XLS, CSV, XML, ODS — можно несколько сразу';
     $('#chans').closest('div').style.opacity = dates ? '.45' : '1';
   }));
 
@@ -69,8 +70,8 @@
   function foot(text) { $('#lcd-foot').textContent = text; }
 
   async function send(files) {
-    files = files.filter((f) => f.name.toLowerCase().endsWith('.xlsx'));
-    if (!files.length) { foot('НУЖНЫ ФАЙЛЫ .XLSX'); return; }
+    files = files.filter((f) => EXT.some((e) => f.name.toLowerCase().endsWith(e)));
+    if (!files.length) { foot('НУЖНЫ ФАЙЛЫ EXCEL, CSV ИЛИ XML'); return; }
     if (state.busy) return;
     state.busy = true;
     drop.classList.add('busy');

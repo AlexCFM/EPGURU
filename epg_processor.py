@@ -15,6 +15,8 @@ from pathlib import Path
 import openpyxl
 import yaml
 
+from readers import load_any
+
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 
@@ -392,7 +394,7 @@ def process(input_path, template_path=None, out_dir="output", original_name=None
         raise EPGError(f"Не удалось определить канал по имени файла: {name}")
     d1, m1, d2, m2 = detect_week(name, token)
 
-    wb = openpyxl.load_workbook(input_path)
+    wb, kind = load_any(input_path)
     ctx = {"months": {int(m1), int(m2)}}
     if tpl.get("needs_year"):
         y = year or year_from_filename(name) or year_from_data(wb, tpl)
@@ -401,6 +403,8 @@ def process(input_path, template_path=None, out_dir="output", original_name=None
         ctx["start_date"] = dt.date(int(y), int(m1), int(d1))
 
     log = [f"Шаблон: {tpl['name']} · канал {code} · неделя {d1}.{m1}–{d2}.{m2}"]
+    if kind != "xlsx":
+        log.append(f"Исходный формат: {kind.upper()} → сохранено в XLSX")
     for ws in wb.worksheets:
         process_sheet(ws, tpl, ctx, log)
 

@@ -4,3 +4,5 @@ fastapi>=0.110
 uvicorn[standard]>=0.29
 python-multipart>=0.0.9
 itsdangerous>=2.1
+xlrd>=2.0.1
+defusedxml>=0.7

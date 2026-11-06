@@ -3,7 +3,7 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 EPGURU_DATA=/data
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY epg_processor.py fix_dates.py ./
+COPY epg_processor.py fix_dates.py readers.py ./
 COPY templates ./templates
 COPY server ./server
 COPY web ./web

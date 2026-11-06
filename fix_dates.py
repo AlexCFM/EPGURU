@@ -23,6 +23,7 @@ from pathlib import Path
 import openpyxl
 
 from epg_processor import DATE_FMT, _empty, _norm, detect_order, parse_date
+from readers import SUPPORTED_EXT, load_any
 
 DATE_HEADERS = {"дата", "date", "дата эфира", "air date"}
 
@@ -90,7 +91,7 @@ def fix_workbook(path: Path, out: Path, original_name=None):
     name = original_name or path.name
     week = week_from_name(name)
     months = {week[0][1], week[1][1]} if week else None
-    wb = openpyxl.load_workbook(path)
+    wb, _kind = load_any(path)
     stats = {"text": 0, "serial": 0, "swapped": 0, "format": 0, "bad": []}
 
     for ws in wb.worksheets:
@@ -132,8 +133,9 @@ def fix_workbook(path: Path, out: Path, original_name=None):
 def collect(inputs):
     for p in map(Path, inputs):
         if p.is_dir():
-            yield from (f for f in sorted(p.rglob("*.xlsx"))
-                        if not f.name.startswith("~$") and "_dates_fixed" not in f.stem)
+            yield from (f for f in sorted(p.rglob("*"))
+                        if f.suffix.lower() in SUPPORTED_EXT
+                        and not f.name.startswith("~$") and "_dates_fixed" not in f.stem)
         else:
             yield p
 
@@ -146,7 +148,7 @@ def main():
     a = ap.parse_args()
     ok = True
     for src in collect(a.inputs):
-        out = src if a.in_place else (Path(a.out) if a.out else src.parent) / f"{src.stem}_dates_fixed.xlsx"
+        out = src.with_suffix(".xlsx") if a.in_place else (Path(a.out) if a.out else src.parent) / f"{src.stem}_dates_fixed.xlsx"
         try:
             s = fix_workbook(src, out)
             print(f"{src.name} -> {out.name}: текст {s['text']}, числа {s['serial']}, "

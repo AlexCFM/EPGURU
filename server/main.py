@@ -27,6 +27,7 @@ sys.path.insert(0, str(ROOT))
 
 from epg_processor import list_templates, load_template, process  # noqa: E402
 from fix_dates import fix_workbook  # noqa: E402
+from readers import SUPPORTED_EXT  # noqa: E402
 
 DATA = Path(os.environ.get("EPGURU_DATA", ROOT / "data"))
 PASSWORD = os.environ.get("EPGURU_PASSWORD", "")
@@ -181,15 +182,16 @@ def download(job_id: str):
 
 async def _store(upload: UploadFile, job_dir: Path) -> Path:
     name = upload.filename or ""
-    if not name.lower().endswith(".xlsx"):
-        raise ValueError("Нужен файл .xlsx")
+    ext = Path(name).suffix.lower()
+    if ext not in SUPPORTED_EXT:
+        raise ValueError("Формат не поддерживается. Можно: " + ", ".join(sorted(SUPPORTED_EXT)))
     data = await upload.read(MAX_MB * 1024 * 1024 + 1)
     if len(data) > MAX_MB * 1024 * 1024:
         raise ValueError(f"Файл больше {MAX_MB} МБ")
-    if not data.startswith(b"PK"):
-        raise ValueError("Это не Excel-файл (.xlsx)")
+    if not data:
+        raise ValueError("Файл пустой")
     job_dir.mkdir(parents=True)
-    src = job_dir / "in.xlsx"
+    src = job_dir / f"in{ext}"
     src.write_bytes(data)
     return src
 

@@ -68,7 +68,7 @@ def test_errors_are_recorded(client):
                                            ("files", ("unknown 09.11-15.11.xlsx", xlsx(MS)))])
     res = r.json()
     assert [j["status"] for j in res] == ["error", "error"]
-    assert "Excel" in res[0]["error"] and "шаблон" in res[1]["error"]
+    assert res[0]["error"] and "шаблон" in res[1]["error"]
 
 
 def test_fix_dates_endpoint(client):
