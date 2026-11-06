@@ -105,18 +105,56 @@ def floor_time(value, step: int):
     return None if t is None else dt.time(t.hour, t.minute - t.minute % step)
 
 
-def parse_date(value):
+_DATE_RE = re.compile(r"^\s*(\d{1,2})([./\-])(\d{1,2})\2(\d{2,4})\s*$")
+DATE_FMT = "DD\\/MM\\/YYYY"   # экранированный «/», чтобы русский Excel не подменял его на «.»
+
+
+def detect_order(values) -> dict:
+    """Порядок день/месяц для текстовых дат по всему столбцу: {разделитель: 'dmy'|'mdy'}."""
+    seen = {}
+    for v in values:
+        if not isinstance(v, str):
+            continue
+        m = _DATE_RE.match(v)
+        if not m:
+            continue
+        a, sep, b = int(m.group(1)), m.group(2), int(m.group(3))
+        if a > 12:
+            seen.setdefault(sep, "dmy")
+        elif b > 12:
+            seen.setdefault(sep, "mdy")
+    return seen
+
+
+def parse_date(value, order=None, months=None):
     if isinstance(value, dt.datetime):
         return value.date()
     if isinstance(value, dt.date):
         return value
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and 20000 < value < 80000:
+        return dt.date(1899, 12, 30) + dt.timedelta(days=int(value))   # серийный номер Excel
     if _empty(value):
         return None
-    m = re.match(r"^\s*(\d{1,2})[./\-](\d{1,2})[./\-](\d{2,4})\s*$", str(value))
-    if m:                                             # всегда день-первым
-        d, mo, y = (int(x) for x in m.groups())
+    m = _DATE_RE.match(str(value))
+    if m:
+        a, sep, b, y = int(m.group(1)), m.group(2), int(m.group(3)), int(m.group(4))
         y += 2000 if y < 100 else 0
-        return dt.date(y, mo, d)
+        mode = (order or {}).get(sep)
+        if not mode and months:                       # сверка с месяцами недели из имени файла
+            if b in months and a not in months:
+                mode = "dmy"
+            elif a in months and b not in months:
+                mode = "mdy"
+        mode = mode or ("mdy" if sep == "/" else "dmy")
+        if a > 12:
+            mode = "dmy"
+        elif b > 12:
+            mode = "mdy"
+        d, mo = (a, b) if mode == "dmy" else (b, a)
+        try:
+            return dt.date(y, mo, d)
+        except ValueError:
+            return None
     m = re.match(r"^\s*(\d{4})-(\d{2})-(\d{2})", str(value))
     return dt.date(*(int(x) for x in m.groups())) if m else None
 
@@ -133,7 +171,7 @@ def write_date(cell, d: dt.date, fmt: str):
         cell.value = d.strftime("%d/%m/%Y")
     else:
         cell.value = dt.datetime(d.year, d.month, d.day)
-        cell.number_format = fmt
+        cell.number_format = DATE_FMT
 
 
 # ---------- книга ----------
@@ -199,9 +237,10 @@ def process_sheet(ws, tpl, ctx, log):
         elif t == "date_format":
             n = 0
             for col in cols_for(hmap, rule["columns"]):
+                order = detect_order(ws.cell(r, col).value for r in range(first, last + 1))
                 for r in range(first, last + 1):
                     c = ws.cell(r, col)
-                    d = parse_date(c.value)
+                    d = parse_date(c.value, order, ctx.get("months"))
                     if d is not None:
                         write_date(c, d, rule.get("format", "DD/MM/YYYY"))
                         n += 1
@@ -334,7 +373,7 @@ def process(input_path, template_path=None, out_dir="output", original_name=None
     d1, m1, d2, m2 = detect_week(name, token)
 
     wb = openpyxl.load_workbook(input_path)
-    ctx = {}
+    ctx = {"months": {int(m1), int(m2)}}
     if tpl.get("needs_year"):
         y = year or year_from_filename(name) or year_from_data(wb, tpl)
         if not y:

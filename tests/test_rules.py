@@ -84,3 +84,34 @@ def test_fight_club(tmp_path):
 
     out2, _ = process(src, out_dir=tmp_path / "out")
     assert out2.name == "EPG_FIGHT_CLUB_09_11_15_11_processed_v2.xlsx"
+
+
+def test_dates_any_input_format(tmp_path):
+    src = make(tmp_path / "VESNA 09.11-15.11.xlsx", [
+        ["Дата", "Время", "Формат"],
+        ["11/15/2026", "10:00", "x"],      # американский, месяц первым
+        ["11/09/2026", "10:00", "x"],      # тот же столбец -> тоже месяц первым = 9 ноября
+        ["15.11.2026", "10:00", "x"],      # русский
+        ["09.11.2026", "10:00", "x"],
+        [46335, "10:00", "x"],             # серийный номер Excel = 09.11.2026
+        [D(2026, 11, 9), "10:00", "x"],
+    ])
+    out, _ = process(src, out_dir=tmp_path)
+    ws = openpyxl.load_workbook(out).active
+    assert [ws.cell(r, 1).value for r in range(2, 6)] == ["15/11/2026", "09/11/2026", "15/11/2026", "09/11/2026"]
+    assert ws.cell(6, 1).value == D(2026, 11, 9) and ws.cell(7, 1).value == D(2026, 11, 9)
+    assert ws.cell(7, 1).number_format == r"DD\/MM\/YYYY"
+
+
+def test_ambiguous_dates_checked_against_week(tmp_path):
+    src = make(tmp_path / "VESNA 02.11-08.11.xlsx", [
+        ["Дата", "Время", "Формат"],
+        ["02/11/2026", "10:00", "x"], ["08/11/2026", "10:00", "x"],   # день первым: всё ноябрь
+    ])
+    out, _ = process(src, out_dir=tmp_path)
+    assert [r[0] for r in read(out)[1:]] == ["02/11/2026", "08/11/2026"]
+
+    src = make(tmp_path / "PLAN B 02.11-08.11.xlsx", [
+        ["Дата", "Время", "Формат"], ["11/02/2026", "10:00", "x"]])  # месяц первым
+    out, _ = process(src, out_dir=tmp_path)
+    assert read(out)[1][0] == "02/11/2026"
