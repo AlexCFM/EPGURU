@@ -87,6 +87,7 @@ button{font:inherit}
 
 /* вход */
 .login{max-width:520px}
+.login .bezel{flex:none}
 .login form{display:flex;flex-direction:column;gap:16px;padding:22px}
 .login label{font-family:var(--pix);font-size:12px}
 .login input{font:600 18px var(--mono);padding:14px;border-radius:8px;border:2px solid var(--lcd-line);background:#D3DED7;color:var(--lcd-ink)}
