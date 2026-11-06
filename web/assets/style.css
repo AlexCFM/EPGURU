@@ -42,6 +42,8 @@ button{font:inherit}
 .cell{padding:10px 14px;border-right:2px solid var(--lcd-line);display:flex;flex-direction:column;gap:4px}
 .cell span:first-child{font-size:12px;font-weight:600}
 .cell span:last-child{font-family:var(--pix);font-size:11px;line-height:1.5}
+.lcd-foot.alert{animation:alert 1.2s steps(2) 3;background:#E9B9AE}
+@keyframes alert{50%{background:var(--lcd-bar)}}
 .lcd-foot{padding:8px 16px;text-align:center;font-family:var(--pix);font-size:10px;line-height:1.6;background:var(--lcd-bar)}
 
 .side{flex:1 1 300px;display:flex;flex-direction:column;gap:22px}

@@ -61,17 +61,27 @@
   });
 
   // ---------- загрузка ----------
+  // файл можно бросить в любое место страницы
   const drop = $('#drop');
-  ['dragenter', 'dragover'].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.add('over'); }));
-  ['dragleave', 'drop'].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.remove('over'); }));
-  drop.addEventListener('drop', (ev) => send([...ev.dataTransfer.files]));
+  let depth = 0;
+  window.addEventListener('dragenter', (ev) => { ev.preventDefault(); depth++; drop.classList.add('over'); });
+  window.addEventListener('dragover', (ev) => { ev.preventDefault(); });
+  window.addEventListener('dragleave', (ev) => { ev.preventDefault(); if (--depth <= 0) { depth = 0; drop.classList.remove('over'); } });
+  window.addEventListener('drop', (ev) => {
+    ev.preventDefault(); depth = 0; drop.classList.remove('over');
+    send([...(ev.dataTransfer?.files || [])]);
+  });
   $('#file').addEventListener('change', (ev) => { send([...ev.target.files]); ev.target.value = ''; });
 
   function foot(text) { $('#lcd-foot').textContent = text; }
+  function flash() {
+    const f = $('#lcd-foot');
+    f.classList.remove('alert'); void f.offsetWidth; f.classList.add('alert');
+  }
 
   async function send(files) {
     files = files.filter((f) => EXT.some((e) => f.name.toLowerCase().endsWith(e)));
-    if (!files.length) { foot('НУЖНЫ ФАЙЛЫ EXCEL, CSV ИЛИ XML'); return; }
+    if (!files.length) { foot('НЕ ТОТ ФОРМАТ: НУЖНЫ EXCEL, CSV, XML, ODS'); flash(); return; }
     if (state.busy) return;
     state.busy = true;
     drop.classList.add('busy');
@@ -88,7 +98,7 @@
       if (ok === 1 && res.length === 1) download(res[0].id);
       await loadJobs(res.map((r) => r.id));
     } catch (e) {
-      if (e.message !== '401') foot('ОШИБКА: ' + e.message.toUpperCase());
+      if (e.message !== '401') { foot('ОШИБКА: ' + e.message.toUpperCase()); flash(); }
     } finally {
       state.busy = false;
       drop.classList.remove('busy');

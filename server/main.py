@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+import hashlib
 import hmac
 import json
 import os
@@ -18,7 +19,7 @@ from contextlib import asynccontextmanager, closing
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from itsdangerous import BadSignature, SignatureExpired, TimestampSigner
 
@@ -108,6 +109,10 @@ async def guard(request: Request, call_next):
             return JSONResponse({"detail": "Нужен вход"}, status_code=401)
         return RedirectResponse("/login")
     resp = await call_next(request)
+    if path.startswith("/assets/"):
+        resp.headers.update(NO_CACHE)
+    elif path.startswith("/api/"):
+        resp.headers["Cache-Control"] = "no-store"
     resp.headers["X-Frame-Options"] = "DENY"
     resp.headers["X-Content-Type-Options"] = "nosniff"
     resp.headers["Referrer-Policy"] = "same-origin"
@@ -253,14 +258,32 @@ async def api_fix_dates(files: list[UploadFile] = File(...)):
 WEB = ROOT / "web"
 
 
+def _asset_version() -> str:
+    h = hashlib.sha1()
+    for f in sorted((WEB / "assets").glob("*")):
+        h.update(f.read_bytes())
+    return h.hexdigest()[:10]
+
+
+ASSET_V = _asset_version()
+NO_CACHE = {"Cache-Control": "no-cache, must-revalidate"}
+
+
+def _page(name: str) -> HTMLResponse:
+    html = (WEB / name).read_text(encoding="utf-8")
+    html = html.replace("/assets/style.css", f"/assets/style.css?v={ASSET_V}")
+    html = html.replace("/assets/app.js", f"/assets/app.js?v={ASSET_V}")
+    return HTMLResponse(html, headers={"Cache-Control": "no-store"})
+
+
 @app.get("/login")
 def login_page():
-    return FileResponse(WEB / "login.html")
+    return _page("login.html")
 
 
 @app.get("/")
 def index():
-    return FileResponse(WEB / "index.html")
+    return _page("index.html")
 
 
 app.mount("/assets", StaticFiles(directory=WEB / "assets"), name="assets")
