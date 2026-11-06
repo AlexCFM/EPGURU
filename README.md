@@ -18,8 +18,6 @@
 
     python epg_processor.py "EPG PLAN B 09.11-15.11.xlsx" "FIGHT CLUB EPG 09_11 - 15_11.xlsx" -o output
 
-Для FIGHT CLUB нужен год. Он берётся из имени файла, затем из столбца даты. Если его нет ни там, ни там, укажите `--year 2026`.
-
 Веб-интерфейс:
 
     streamlit run app.py

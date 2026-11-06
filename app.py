@@ -13,8 +13,6 @@ st.title("📺 EPGURU")
 AUTO = "Авто (по имени файла)"
 tpls = {AUTO: None} | {load_template(p)["name"]: p for p in list_templates()}
 choice = st.selectbox("Шаблон", list(tpls))
-year = st.number_input("Год (нужен FIGHT CLUB, если его нет в имени файла и в данных)",
-                       min_value=2000, max_value=2100, value=None, placeholder="автоматически")
 files = st.file_uploader("EPG-файлы (.xlsx)", type=["xlsx"], accept_multiple_files=True)
 
 for f in files or []:
@@ -22,7 +20,7 @@ for f in files or []:
         src = Path(tmp) / "in.xlsx"
         src.write_bytes(f.getvalue())
         try:
-            out, log = process(src, tpls[choice], Path(tmp) / "out", original_name=f.name, year=year)
+            out, log = process(src, tpls[choice], Path(tmp) / "out", original_name=f.name)
             st.success(f"{f.name} → {log[-1]}")
             with st.expander("Лог"):
                 st.text("\n".join(log))
