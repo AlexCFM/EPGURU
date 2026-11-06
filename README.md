@@ -1,19 +1,45 @@
-# EPG процессор
+# EPGURU
 
 Обработка EPG по шаблонам без ИИ. Правила лежат в `templates/*.yaml`, движок — в `epg_processor.py`.
+Шаблон выбирается автоматически по имени файла.
+
+| Шаблон | Каналы | Файл |
+|---|---|---|
+| MAKE SENSE | PLAN B, 9-1-1, VESNA | `templates/make_sense.yaml` |
+| FIGHT CLUB | FIGHT CLUB | `templates/fight_club.yaml` |
+
+Исходные текстовые правила лежат в `docs/`.
 
 ## Установка
-    pip install openpyxl pyyaml streamlit
+    pip install -r requirements.txt
 
 ## Запуск
 Из командной строки (можно передать сразу несколько файлов):
 
-    python epg_processor.py "EPG PLAN B 09.11-15.11.xlsx" -o output
+    python epg_processor.py "EPG PLAN B 09.11-15.11.xlsx" "FIGHT CLUB EPG 09_11 - 15_11.xlsx" -o output
 
-Веб-интерфейс в браузере:
+Для FIGHT CLUB нужен год. Он берётся из имени файла, затем из столбца даты. Если его нет ни там, ни там, укажите `--year 2026`.
+
+Веб-интерфейс:
 
     streamlit run app.py
 
-## Новый шаблон
-Скопируйте `templates/make_sense.yaml`, поменяйте каналы, правила и маску имени. Доступные правила:
-`drop_columns_prefix`, `time_floor`, `date_format`, `replace_exact`, `age_rating`, `clear_if_equal`.
+## Как поменять правила
+- **Поменять значение** (новая замена, другое название столбца, новый канал): правьте YAML прямо на GitHub.
+- **Новый формат:** скопируйте YAML, поменяйте `channels`, `rules` и `output_name`.
+- **Новая операция:** добавьте блок `elif t == "..."` в `process_sheet` и тест в `tests/`.
+
+После каждого коммита GitHub прогоняет тесты (`.github/workflows/test.yml`). Красный крестик в репозитории означает, что правка что-то сломала.
+
+## Доступные правила
+| type | что делает |
+|---|---|
+| `drop_columns_prefix` | удаляет столбцы, заголовок которых начинается с префикса |
+| `time_floor` | округляет время вниз до N минут |
+| `date_format` | приводит даты к DD/MM/YYYY (день первым) |
+| `rebuild_dates` | пересчитывает даты от даты из имени файла, переход через полночь даёт +1 день |
+| `dedupe_consecutive` | удаляет только подряд идущие дубли (кроме указанных столбцов) |
+| `replace_exact` | точная замена значений |
+| `age_rating` | первое число из значения + «+» |
+| `append_suffix` | дописывает суффикс, если его нет |
+| `clear_if_equal` | очищает ячейку, если она совпадает с другим столбцом |

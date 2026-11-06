@@ -14,7 +14,7 @@ channels:
     code: VESNA
 
 # Строка заголовков ищется в первых N строках по этим «якорным» колонкам
-header_anchors: ["Формат", "Название (рус)", "Название эпизода"]
+header_anchors: ["Формат", "Format", "Название (рус)", "Title Rus", "Название эпизода", "Episode Name"]
 header_search_rows: 10
 
 rules:
@@ -22,7 +22,7 @@ rules:
     prefix: "unnamed"
 
   - type: time_floor                 # время вниз до 5 минут, HH:MM
-    columns: ["Время", "Время начала", "Start time", "Time"]
+    columns: ["Время", "Время начала", "Start Time", "Time"]
     step_minutes: 5
 
   - type: date_format                # дата DD/MM/YYYY
@@ -30,7 +30,7 @@ rules:
     format: "DD/MM/YYYY"
 
   - type: replace_exact              # Movie -> х/ф, только точное совпадение
-    columns: ["Формат"]
+    columns: ["Формат", "Format"]
     mapping:
       Movie: "х/ф"
 
@@ -38,5 +38,5 @@ rules:
     columns: ["Возрастное ограничение", "Маркер"]
 
   - type: clear_if_equal             # очистить эпизод, если совпадает с названием
-    target: "Название эпизода"
-    compare_with: "Название (рус)"
+    target: ["Название эпизода", "Episode Name"]
+    compare_with: ["Название (рус)", "Title Rus"]

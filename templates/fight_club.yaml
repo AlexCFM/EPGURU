@@ -1,0 +1,38 @@
+# Шаблон обработки EPG: FIGHT CLUB
+
+name: FIGHT CLUB
+output_name: "EPG_{channel}_{d1}_{m1}_{d2}_{m2}_processed.xlsx"
+versioning: true          # при повторной обработке: _v2, _v3...
+needs_year: true          # год: из имени файла, из столбца даты или указать вручную
+
+channels:
+  - match: ["FIGHT CLUB", "FIGHT_CLUB", "FIGHTCLUB"]
+    code: FIGHT_CLUB
+
+header_anchors: ["Date", "Дата", "Start Time", "Время", "EPG_TITLE_RUS", "Название"]
+header_search_rows: 10
+
+rules:
+  # 1. Даты заново: первая строка = дата из имени файла,
+  #    время меньше предыдущего = следующий день, пустое время сбрасывает сравнение
+  - type: rebuild_dates
+    date_columns: ["Date", "Дата"]
+    time_columns: ["Start Time", "Время"]
+    format: "DD/MM/YYYY"
+
+  # 2. Только подряд идущие дубли; дата и время в сравнении не участвуют,
+  #    пустая строка — граница блока
+  - type: dedupe_consecutive
+    ignore_columns: ["Date", "Дата", "Start Time", "Время"]
+
+  # 3. Замена названия
+  - type: replace_exact
+    columns: ["EPG_TITLE_RUS", "Название"]
+    strip: true
+    mapping:
+      "МИСС ВСЕЛЕННАЯ": "ЗАГЛУШКА"
+
+  # 4. Возраст: ровно один «+» в конце у каждого непустого значения
+  - type: append_suffix
+    columns: ["AGE RATING", "Возраст"]
+    suffix: "+"
