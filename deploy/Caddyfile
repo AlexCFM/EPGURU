@@ -1,0 +1,7 @@
+{$EPGURU_DOMAIN} {
+	encode gzip
+	request_body {
+		max_size 100MB
+	}
+	reverse_proxy epguru:8000
+}

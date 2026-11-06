@@ -62,7 +62,9 @@ def detect_channel(filename: str, channels: list[dict]) -> tuple[str, str]:
 
 
 def detect_week(filename: str, channel_token: str) -> tuple[str, str, str, str]:
-    stem = Path(filename).stem.upper().replace(channel_token.upper(), " ")
+    stem = Path(filename).stem.upper()
+    if channel_token:
+        stem = stem.replace(channel_token.upper(), " ")
     pairs = re.findall(r"(?<!\d)(\d{1,2})[._\-/](\d{1,2})(?:[._\-/]\d{4})?(?!\d)", stem)
     valid = [(d, m) for d, m in pairs if 1 <= int(d) <= 31 and 1 <= int(m) <= 12]
     if len(valid) < 2:
@@ -365,11 +367,29 @@ def versioned(path: Path) -> Path:
     return p
 
 
-def process(input_path, template_path=None, out_dir="output", original_name=None, year=None):
+def template_for_channel(code: str) -> Path:
+    for p in list_templates():
+        if any(ch["code"] == code for ch in load_template(p)["channels"]):
+            return p
+    raise EPGError(f"Нет шаблона для канала {code}")
+
+
+def process(input_path, template_path=None, out_dir="output", original_name=None, year=None, channel=None):
+    """channel — код канала, выбранный вручную (если в имени файла канала нет)."""
     name = original_name or Path(input_path).name
+    if channel and not template_path:
+        template_path = template_for_channel(channel)
     template_path = template_path or auto_template(name)
     tpl = load_template(template_path)
-    code, token = detect_channel(name, tpl["channels"])
+    found = match_channel(name, tpl["channels"])
+    if channel and (not found or found[0] != channel):
+        if not any(ch["code"] == channel for ch in tpl["channels"]):
+            raise EPGError(f"Канал {channel} не относится к шаблону {tpl['name']}")
+        code, token = channel, ""
+    elif found:
+        code, token = found
+    else:
+        raise EPGError(f"Не удалось определить канал по имени файла: {name}")
     d1, m1, d2, m2 = detect_week(name, token)
 
     wb = openpyxl.load_workbook(input_path)

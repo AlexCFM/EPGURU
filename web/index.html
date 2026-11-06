@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EPGURU</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700&family=Manrope:wght@500;700;800&family=JetBrains+Mono:wght@400;600&family=Press+Start+2P&display=swap">
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<div class="page">
+  <section class="device" aria-label="Пульт EPGURU">
+    <div class="topbar">
+      <div class="brand"><b>EPGURU</b><span class="label">EPG PROCESSOR · MK1</span></div>
+      <div class="inputs" aria-label="Способы загрузки">
+        <span class="inp"><span class="dot on" aria-hidden="true"></span>САЙТ</span>
+        <span class="inp" title="Скоро"><span class="dot" aria-hidden="true"></span>ПОЧТА</span>
+        <span class="inp" title="Скоро"><span class="dot" aria-hidden="true"></span>TELEGRAM</span>
+        <span class="inp" title="Скоро"><span class="dot" aria-hidden="true"></span>ПАПКА</span>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="bezel">
+        <div class="lcd">
+          <div class="lcd-bar"><span id="lcd-title">ПРИЁМ EPG</span><span id="lcd-tpl">АВТО</span></div>
+          <label for="file" class="drop" id="drop">
+            <svg width="88" height="72" viewBox="0 0 22 18" aria-hidden="true"><g fill="#22302B">
+              <rect x="6" y="0" width="2" height="2"/><rect x="14" y="0" width="2" height="2"/>
+              <rect x="8" y="2" width="2" height="2"/><rect x="12" y="2" width="2" height="2"/>
+              <rect x="1" y="4" width="20" height="2"/><rect x="1" y="6" width="2" height="9"/><rect x="19" y="6" width="2" height="9"/>
+              <rect x="1" y="15" width="20" height="2"/><rect x="6" y="8" width="2" height="2"/><rect x="14" y="8" width="2" height="2"/>
+              <rect x="7" y="11" width="8" height="2" id="mouth"/></g></svg>
+            <span class="big" id="drop-big">ПЕРЕТАЩИ EPG СЮДА</span>
+            <span class="small" id="drop-small">или нажми, чтобы выбрать файлы .xlsx — можно несколько сразу</span>
+            <input id="file" type="file" accept=".xlsx" multiple class="vh">
+          </label>
+          <div class="cells">
+            <div class="cell"><span>1 РЕЖИМ</span><span id="c-mode">EPG</span></div>
+            <div class="cell"><span>2 ШАБЛОН</span><span id="c-tpl">АВТО</span></div>
+            <div class="cell"><span>3 СЕГОДНЯ</span><span id="c-today">0 ФАЙЛОВ</span></div>
+            <div class="cell"><span>4 ВЫХОД</span><span>XLSX</span></div>
+          </div>
+          <div class="lcd-foot" id="lcd-foot" role="status" aria-live="polite">ГОТОВ К ПРИЁМУ</div>
+        </div>
+      </div>
+
+      <div class="side">
+        <div class="knobs">
+          <div class="knob-w"><div class="knob" role="img" aria-label="Шаг округления времени: 5 минут"><i style="transform:rotate(-60deg)"></i></div>
+            <span class="label">ШАГ ВРЕМЕНИ</span><b>5 мин</b></div>
+          <div class="knob-w"><div class="knob" role="img" aria-label="Формат дат: день, месяц, год"><i style="transform:rotate(120deg)"></i></div>
+            <span class="label">ФОРМАТ ДАТ</span><b>DD/MM/YYYY</b></div>
+        </div>
+        <span class="label">ФУНКЦИИ</span>
+        <div class="fkeys">
+          <button type="button" class="key fkey on" data-mode="epg" aria-pressed="true">EPG</button>
+          <button type="button" class="key fkey" data-mode="dates" aria-pressed="false">ДАТЫ</button>
+          <button type="button" class="key fkey" id="k-history">ИСТОРИЯ</button>
+          <a class="key fkey" href="https://github.com/AlexCFM/EPGURU/tree/main/templates" target="_blank" rel="noopener">ШАБЛОНЫ</a>
+          <button type="button" class="key fkey" disabled>КАТАЛОГ<small>СКОРО</small></button>
+          <button type="button" class="key fkey dark" id="k-logout">ВЫХОД</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <span class="label">КАНАЛ · ШАБЛОН ОБРАБОТКИ</span>
+      <div class="chans" id="chans"></div>
+    </div>
+  </section>
+
+  <section class="tape" id="history" aria-label="Очередь и история">
+    <div class="tape-head"><h2>ОЧЕРЕДЬ</h2><span class="label" id="hist-note">последние 50</span></div>
+    <div class="scroll">
+      <div class="table">
+        <div class="tr th"><span>ИСХОДНИК</span><span>РЕЗУЛЬТАТ</span><span>СТАТУС</span><span>ДЕЙСТВИЕ</span></div>
+        <div id="rows"></div>
+      </div>
+    </div>
+  </section>
+</div>
+<script src="/assets/app.js"></script>
+</body>
+</html>

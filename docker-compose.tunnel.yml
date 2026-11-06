@@ -1,0 +1,20 @@
+# Вариант без открытых портов: Cloudflare Tunnel + Cloudflare Access.
+# Запуск: docker compose -f docker-compose.tunnel.yml up -d --build
+services:
+  epguru:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/data
+    expose:
+      - "8000"
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CF_TUNNEL_TOKEN}
+    depends_on:
+      - epguru

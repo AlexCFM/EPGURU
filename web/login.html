@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EPGURU — вход</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700&family=Manrope:wght@500;700;800&family=JetBrains+Mono:wght@400;600&family=Press+Start+2P&display=swap">
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<div class="page" style="justify-content:center">
+  <section class="device login" aria-label="Вход">
+    <div class="brand"><b>EPGURU</b><span class="label">EPG PROCESSOR · MK1</span></div>
+    <div class="bezel">
+      <div class="lcd">
+        <div class="lcd-bar"><span>ВХОД</span><span>LOCKED</span></div>
+        <form id="f">
+          <label for="pw">ПАРОЛЬ</label>
+          <input id="pw" type="password" autocomplete="current-password" required autofocus>
+          <button class="key" type="submit">ВОЙТИ</button>
+          <div class="msg" id="msg" role="alert"></div>
+        </form>
+      </div>
+    </div>
+  </section>
+</div>
+<script>
+document.getElementById('f').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('msg');
+  msg.textContent = '';
+  const r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: document.getElementById('pw').value }) });
+  if (r.ok) { location.href = '/'; return; }
+  try { msg.textContent = (await r.json()).detail; } catch (_) { msg.textContent = 'Ошибка входа'; }
+});
+</script>
+</body>
+</html>
