@@ -16,6 +16,7 @@ git clone https://github.com/AlexCFM/EPGURU.git /opt/epguru && cd /opt/epguru
 cp .env.example .env
 sed -i "s/^EPGURU_SECRET=.*/EPGURU_SECRET=$(openssl rand -hex 32)/" .env
 nano .env    # EPGURU_PASSWORD и CF_TUNNEL_TOKEN=<токен из шага 1>
+mkdir -p data && chown -R 1000:1000 data   # приложение работает не от root
 docker compose -f docker-compose.tunnel.yml up -d --build
 ```
 Обновление: `git pull && docker compose -f docker-compose.tunnel.yml up -d --build`.
@@ -38,6 +39,7 @@ cd /opt/epguru
 cp .env.example .env
 sed -i "s/^EPGURU_SECRET=.*/EPGURU_SECRET=$(openssl rand -hex 32)/" .env
 nano .env          # впишите EPGURU_DOMAIN и EPGURU_PASSWORD
+mkdir -p data && chown -R 1000:1000 data
 docker compose up -d --build
 ```
 Через минуту сайт откроется на `https://<домен>`. HTTPS-сертификат Caddy получает сам.
