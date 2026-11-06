@@ -96,3 +96,24 @@ def test_fight_club_no_year(tmp_path):
     src = make(tmp_path / "FIGHT CLUB EPG 09_11 - 15_11.xlsx", [FC_HEAD, [None, "20:00", "А", 16, "n"]])
     with pytest.raises(EPGError, match="год"):
         process(src, out_dir=tmp_path)
+
+
+def test_fight_club_previous_day_tail(tmp_path):
+    src = make(tmp_path / "FIGHT CLUB EPG 09_11 - 15_11.xlsx", [
+        FC_HEAD,
+        [None, "23:10", "Хвост", 16, "n"],
+        [None, "23:50", "Хвост 2", 16, "n"],
+        [None, "00:05", "Первая программа", 16, "n"],
+        [None, "12:00", "Днём", 16, "n"],
+        [None, "01:00", "Ночь", 16, "n"],
+    ])
+    out, _ = process(src, out_dir=tmp_path, year=2026)
+    assert [r[0] for r in read(out)[1:]] == [
+        D(2026, 11, 8), D(2026, 11, 8), D(2026, 11, 9), D(2026, 11, 9), D(2026, 11, 10)]
+
+
+def test_fight_club_normal_start_not_shifted(tmp_path):
+    src = make(tmp_path / "FIGHT CLUB EPG 09_11 - 15_11.xlsx", [
+        FC_HEAD, [None, "06:00", "Утро", 16, "n"], [None, "23:30", "Вечер", 16, "n"]])
+    out, _ = process(src, out_dir=tmp_path, year=2026)
+    assert [r[0] for r in read(out)[1:]] == [D(2026, 11, 9), D(2026, 11, 9)]

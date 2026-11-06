@@ -214,6 +214,15 @@ def process_sheet(ws, tpl, ctx, log):
                 raise EPGError(f"[{ws.title}] нет столбца даты или времени для пересчёта дат")
             dcol, tcol = dcols[0], tcols[0]
             cur, prev, n = ctx["start_date"], None, 0
+            # хвост предыдущих суток: первое время в файле позже порога -> дата предыдущего дня
+            prev_from = rule.get("previous_day_from")
+            if prev_from:
+                threshold = parse_time(prev_from)
+                first_t = next((t for r in range(first, last + 1)
+                                if (t := parse_time(ws.cell(r, tcol).value)) is not None), None)
+                if first_t is not None and first_t >= threshold:
+                    cur -= dt.timedelta(days=1)
+                    log.append(f"[{ws.title}] первая строка {first_t:%H:%M} — хвост предыдущих суток, дата {cur:%d/%m/%Y}")
             for r in range(first, last + 1):
                 tm = parse_time(ws.cell(r, tcol).value)
                 if tm is None:                 # пустое время сбрасывает сравнение
