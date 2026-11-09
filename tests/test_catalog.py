@@ -41,6 +41,8 @@ VESNA = book({
                 ["Каждый за себя", 1, "01:33:00:00"], ["Каждый за себя", 2, "01:33:00:00"],
                 ["Каждый за себя", 3, "01:33:00:00"],                                         # 3×93 — сериал
                 ["Бабье лето", 1, "01:26:00:00"], ["Бабье лето", 2, "01:26:00:00"],           # 2×86 — фильм
+                ["Наследница", 1, "00:52:00:00"], ["Наследница", 2, "00:52:00:00"],
+                ["Наследница", 3, "00:52:00:00"], ["Наследница", 4, "00:52:00:00"],           # 4×52 — фильм
                 ["Белое платье", 1, "01:30:00:00"]] +
                [["Длинный", i, "00:44:00:00"] for i in range(1, 7)],                         # 6 серий — сериал
 })
@@ -64,7 +66,7 @@ def test_norm_title_homoglyph_and_parens(tmp_path):
     assert cat.lookup("СИЛО")["type"] == "series"
     assert cat.lookup("Полиция Вены: Спецотдел")["type"] == "series"
     assert cat.lookup("Девушка в поезде")["type"] == "film"
-    assert cat.lookup("Каина")["type"] == "keep"
+    assert cat.lookup("Каина")["type"] == "film"            # ODDS — фильмы
     assert cat.lookup("Неизвестный фильм") is None
     assert norm_title("Ёлка «Новая»") == norm_title("елка Новая")
 
@@ -77,6 +79,7 @@ def test_vesna_auto_sheet(tmp_path):
     assert cat.lookup("Пенелопа")["type"] == "series"
     assert cat.lookup("Каждый за себя")["type"] == "series"
     assert cat.lookup("Бабье лето")["type"] == "film"
+    assert cat.lookup("Наследница")["type"] == "film"
     assert cat.lookup("Длинный")["type"] == "series"
     assert cat.lookup("Белое платье")["type"] == "film"
     assert cat.lookup("Коварная любовь")["type"] == "series"
@@ -119,7 +122,7 @@ def test_epg_with_catalog(tmp_path):
         ("Береговая охрана", None, "сериал"),                  # «1 серия» вычищено, сериал по каталогу
         ("Береговая охрана", "Эпизод 3. Татьяна", "сериал"),   # с названием — не трогаем
         ("Девушка в поезде", None, "х/ф"),                     # фильм по каталогу
-        ("Каина", None, "х/ф"),                                # ODDS: формат не трогаем (Movie -> х/ф по общему правилу)
+        ("Каина", None, "х/ф"),                                # ODDS — фильмы
         ("Девушка в поездe", None, "х/ф"),                     # латинская «e» в EPG тоже находится
         ("Совсем новый фильм", None, "х/ф"),                   # нет в каталоге — по общему правилу
     ]
@@ -152,7 +155,7 @@ def test_catalog_api(client):
     bad = client.post("/api/catalogs/911", files={"file": ("x.xlsx", book({"A": [["b"]]}))})
     assert bad.status_code == 400
     ok = client.post("/api/catalogs/911", files={"file": ("INVENTORY_SUSPENSE_RUS.xlsx", SUSPENSE)}).json()
-    assert ok["films"] == 2 and ok["series"] == 3
+    assert ok["films"] == 3 and ok["series"] == 3
     st = {c["code"]: c for c in client.get("/api/catalogs").json()}
     assert st["911"]["loaded"] and st["911"]["file"] == "INVENTORY_SUSPENSE_RUS.xlsx"
     assert client.post("/api/catalogs/PLAN_B", files={"file": ("a.xlsx", SUSPENSE)}).status_code == 404

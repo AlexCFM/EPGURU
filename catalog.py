@@ -131,7 +131,7 @@ def auto_type(n_episodes: int, max_minutes: float, rule: dict) -> str:
     Сериал: серий больше film_max_episodes, ИЛИ серий не меньше long_from_episodes
     и серия длиннее film_max_minutes. Иначе — фильм (в т.ч. 4 серии по ~45 мин, 2 серии по 90)."""
     max_eps = rule.get("film_max_episodes", 4)
-    max_min = rule.get("film_max_minutes", 50)
+    max_min = rule.get("film_max_minutes", 55)
     long_from = rule.get("long_from_episodes", 3)
     if n_episodes > max_eps:
         return "series"

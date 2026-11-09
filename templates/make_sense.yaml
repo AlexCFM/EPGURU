@@ -61,7 +61,7 @@ catalogs:
     sheets:
       - {name: "FILMS",  type: film,   title: "Name RU MOVIES"}
       - {name: "SERIES", type: series, title: "Name RU SERIES"}
-      - {name: "ODDS",   type: keep,   title: "Name RU ODDS", optional: true}
+      - {name: "ODDS",   type: film,   title: "Name RU ODDS", optional: true}
   VESNA:
     label: "VESNA INVENTORY"
     sheets:
@@ -70,4 +70,4 @@ catalogs:
       - {name: "СЕРИАЛЫ",     type: series, title: "Название (RU)"}
       - {name: "СЕРИАЛЫ РУС", type: series, title: "Название (RU)", optional: true}
       - {name: "РУССКОЕ",     type: auto,   title: "Название (RU)", optional: true,
-         duration: "Duration", film_max_episodes: 4, film_max_minutes: 50, long_from_episodes: 3}
+         duration: "Duration", film_max_episodes: 4, film_max_minutes: 55, long_from_episodes: 3}
