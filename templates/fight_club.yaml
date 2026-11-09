@@ -34,7 +34,24 @@ rules:
     mapping:
       "МИСС ВСЕЛЕННАЯ": "ЗАГЛУШКА"
 
-  # 4. Возраст: ровно один «+» в конце у каждого непустого значения
+  # 4. Каталог (если загружен и в EPG есть столбец формата): фильм -> х/ф, сериал -> сериал
+  - type: catalog_format
+    title: ["EPG_TITLE_RUS", "Название", "Title Rus"]
+    format: ["Format", "Формат", "Film Format", "Тип"]
+    mapping:
+      film: "х/ф"
+      series: "сериал"
+
+  # 5. Возраст: ровно один «+» в конце у каждого непустого значения
   - type: append_suffix
     columns: ["AGE RATING", "Возраст"]
     suffix: "+"
+
+# Каталог FIGHT CLUB: листы ФИЛЬМЫ / СЕРИАЛЫ (или один лист КАТАЛОГ со столбцом «Тип»)
+catalogs:
+  FIGHT_CLUB:
+    label: "FIGHT CLUB · ФИЛЬМЫ / СЕРИАЛЫ"
+    sheets:
+      - {name: "ФИЛЬМЫ",  type: column, title: ["Название (RU)", "Название", "EPG_TITLE_RUS"], type_column: "Тип", optional: true, default: film}
+      - {name: "СЕРИАЛЫ", type: column, title: ["Название (RU)", "Название", "EPG_TITLE_RUS"], type_column: "Тип", optional: true, default: series}
+      - {name: "КАТАЛОГ", type: column, title: ["Название (RU)", "Название", "EPG_TITLE_RUS"], type_column: "Тип", optional: true}

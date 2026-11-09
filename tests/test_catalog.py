@@ -151,14 +151,14 @@ def client(tmp_path, monkeypatch):
 
 
 def test_catalog_api(client):
-    assert {c["code"]: c["loaded"] for c in client.get("/api/catalogs").json()} == {"911": False, "VESNA": False, "PLAN_B": False}
+    assert {c["code"]: c["loaded"] for c in client.get("/api/catalogs").json()} == {"911": False, "VESNA": False, "PLAN_B": False, "FIGHT_CLUB": False}
     bad = client.post("/api/catalogs/911", files={"file": ("x.xlsx", book({"A": [["b"]]}))})
     assert bad.status_code == 400
     ok = client.post("/api/catalogs/911", files={"file": ("INVENTORY_SUSPENSE_RUS.xlsx", SUSPENSE)}).json()
     assert ok["films"] == 3 and ok["series"] == 3
     st = {c["code"]: c for c in client.get("/api/catalogs").json()}
     assert st["911"]["loaded"] and st["911"]["file"] == "INVENTORY_SUSPENSE_RUS.xlsx"
-    assert client.post("/api/catalogs/FIGHT_CLUB", files={"file": ("a.xlsx", SUSPENSE)}).status_code == 404
+    assert client.post("/api/catalogs/NOPE", files={"file": ("a.xlsx", SUSPENSE)}).status_code == 404
 
     wb = openpyxl.Workbook()
     for r in [EPG_HEAD, [dt.datetime(2026, 11, 9), dt.time(10, 3), "Сило", "Серия 1", "Movie", "16"]]:

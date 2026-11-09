@@ -10,11 +10,12 @@ channels:
     code: PLAN_B
   - match: ["9-1-1", "911"]
     code: "911"
+    values: ["Suspenso_RUS", "Suspense_RUS", "Suspense"]
   - match: ["VESNA"]
     code: VESNA
 
 # Строка заголовков ищется в первых N строках по этим «якорным» колонкам
-header_anchors: ["Формат", "Format", "Название (рус)", "Title Rus", "Название эпизода", "Episode Name"]
+header_anchors: ["Формат", "Format", "Film Format", "Название (рус)", "Title Rus", "Название эпизода", "Episode Name"]
 header_search_rows: 10
 
 rules:
@@ -30,13 +31,13 @@ rules:
     format: "DD/MM/YYYY"
 
   - type: replace_exact              # Movie -> х/ф, только точное совпадение
-    columns: ["Формат", "Format"]
+    columns: ["Формат", "Format", "Film Format"]
     mapping:
       Movie: "х/ф"
 
   - type: catalog_format             # по каталогу канала: фильм -> х/ф, сериал -> сериал
     title: ["Название (рус)", "Title Rus"]
-    format: ["Формат", "Format"]
+    format: ["Формат", "Format", "Film Format"]
     mapping:
       film: "х/ф"
       series: "сериал"
@@ -45,7 +46,7 @@ rules:
     columns: ["Название эпизода", "Episode Name"]
 
   - type: age_rating                 # 12 -> 12+, 18 years -> 18+
-    columns: ["Возрастное ограничение", "Маркер"]
+    columns: ["Возрастное ограничение", "Маркер", "Age Restrict", "Age Rating", "Age"]
 
   - type: clear_if_equal             # очистить эпизод, если совпадает с названием
     target: ["Название эпизода", "Episode Name"]
@@ -75,8 +76,8 @@ catalogs:
   PLAN_B:
     label: "PLAN B · ФИЛЬМЫ / СЕРИАЛЫ / MAURIS"
     sheets:
-      - {name: "ФИЛЬМЫ",    type: column, title: "Название (RU)", type_column: "Тип", optional: true}
-      - {name: "СЕРИАЛЫ",   type: column, title: "Название (RU)", type_column: "Тип", optional: true}
-      - {name: "MAURIS",    type: column, title: "Название (RU)", type_column: "Тип", optional: true}
+      - {name: "ФИЛЬМЫ",    type: column, title: "Название (RU)", type_column: "Тип", optional: true, default: film}
+      - {name: "СЕРИАЛЫ",   type: column, title: "Название (RU)", type_column: "Тип", optional: true, default: series}
+      - {name: "MAURIS",    type: column, title: "Название (RU)", type_column: "Тип", optional: true, default: film}
       - {name: "НЕ РЕШЕНО", type: column, title: "Название (RU)", type_column: "Тип", optional: true}
       - {name: "КАТАЛОГ",   type: column, title: "Название (RU)", type_column: "Тип", optional: true}

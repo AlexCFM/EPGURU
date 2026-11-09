@@ -45,6 +45,44 @@ def match_channel(filename: str, channels: list[dict]):
     return None
 
 
+def match_channel_value(value: str, channels: list[dict]):
+    """Значение столбца «Channel» в самом EPG (например, Suspenso_RUS)."""
+    v = str(value or "").strip().lower()
+    if not v:
+        return None
+    for ch in channels:
+        if v in [str(x).strip().lower() for x in ch.get("values", [])]:
+            return ch["code"]
+    return None
+
+
+CHANNEL_COLUMNS = ["channel", "канал"]
+
+
+def channel_from_data(wb):
+    """Самое частое значение столбца Channel/Канал на первом листе, где он есть."""
+    from collections import Counter
+    for ws in wb.worksheets:
+        for r in range(1, min(10, ws.max_row) + 1):
+            hdr = [_norm(c.value) for c in ws[r]]
+            for name in CHANNEL_COLUMNS:
+                if name in hdr:
+                    col = hdr.index(name) + 1
+                    vals = Counter(str(ws.cell(i, col).value).strip() for i in range(r + 1, ws.max_row + 1)
+                                   if ws.cell(i, col).value not in (None, ""))
+                    if vals:
+                        return vals.most_common(1)[0][0]
+    return None
+
+
+def template_for_data_channel(value):
+    for p in list_templates():
+        code = match_channel_value(value, load_template(p)["channels"])
+        if code:
+            return p, code
+    return None, None
+
+
 def auto_template(filename: str) -> Path:
     found = [p for p in list_templates() if match_channel(filename, load_template(p)["channels"])]
     if not found:
@@ -65,6 +103,10 @@ def detect_channel(filename: str, channels: list[dict]) -> tuple[str, str]:
 
 
 def detect_week(filename: str, channel_token: str) -> tuple[str, str, str, str]:
+    iso = re.findall(r"(20\d{2})[-_.](\d{2})[-_.](\d{2})", Path(filename).stem)
+    if len(iso) >= 2:
+        (_, m1, d1), (_, m2, d2) = iso[0], iso[1]
+        return d1, m1, d2, m2
     stem = Path(filename).stem.upper()
     if channel_token:
         stem = stem.replace(channel_token.upper(), " ")
@@ -77,7 +119,8 @@ def detect_week(filename: str, channel_token: str) -> tuple[str, str, str, str]:
 
 
 def year_from_filename(filename: str):
-    m = re.search(r"(?<!\d)(20\d{2})(?!\d)", Path(filename).stem)
+    m = re.search(r"(?<!\d)(20\d{2})(?=[-_.]\d{2}[-_.]\d{2})", Path(filename).stem) or \
+        re.search(r"(?<!\d)(20\d{2})(?!\d)", Path(filename).stem)
     return int(m.group(1)) if m else None
 
 
@@ -421,9 +464,19 @@ def process(input_path, template_path=None, out_dir="output", original_name=None
             catalog_dir=None):
     """channel — код канала, выбранный вручную (если в имени файла канала нет)."""
     name = original_name or Path(input_path).name
+    wb, kind = load_any(input_path)
+    data_channel = None
     if channel and not template_path:
         template_path = template_for_channel(channel)
-    template_path = template_path or auto_template(name)
+    if not template_path:
+        try:
+            template_path = auto_template(name)
+        except EPGError:
+            data_channel = channel_from_data(wb)
+            template_path, channel = template_for_data_channel(data_channel)
+            if not template_path:
+                raise EPGError(f"Канал не найден ни в имени файла «{name}», ни в столбце Channel"
+                               + (f" (там «{data_channel}»)" if data_channel else ""))
     tpl = load_template(template_path)
     found = match_channel(name, tpl["channels"])
     if channel and (not found or found[0] != channel):
@@ -436,7 +489,6 @@ def process(input_path, template_path=None, out_dir="output", original_name=None
         raise EPGError(f"Не удалось определить канал по имени файла: {name}")
     d1, m1, d2, m2 = detect_week(name, token)
 
-    wb, kind = load_any(input_path)
     ctx = {"months": {int(m1), int(m2)}}
     if tpl.get("needs_year"):
         y = year or year_from_filename(name) or year_from_data(wb, tpl)
@@ -454,6 +506,8 @@ def process(input_path, template_path=None, out_dir="output", original_name=None
         log.append(f"Каталог: {'загружен' if cpath else 'НЕ ЗАГРУЖЕН'}")
     if kind != "xlsx":
         log.append(f"Исходный формат: {kind.upper()} → сохранено в XLSX")
+    if data_channel:
+        log.append(f"Канал взят из столбца Channel: «{data_channel}» → {code}")
     for ws in wb.worksheets:
         process_sheet(ws, tpl, ctx, log)
 

@@ -45,7 +45,16 @@ class Catalog:
                 self.items[key] = {"title": str(title).strip(), "type": typ}
 
     def lookup(self, title):
-        return self.items.get(norm_title(title)) or self.items.get(norm_title(_strip_parens(title or "")))
+        hit = self.items.get(norm_title(title)) or self.items.get(norm_title(_strip_parens(title or "")))
+        if hit:
+            return hit
+        # «Тайны Лауры 3» — номер сезона в конце: принимаем, только если без номера это сериал
+        m = re.match(r"^(.*\D)\s+(\d{1,2})$", norm_title(title))
+        if m:
+            base = self.items.get(m.group(1).strip())
+            if base and base["type"] == "series":
+                return base
+        return None
 
     def suggest(self, title, n=3):
         keys = difflib.get_close_matches(norm_title(title), list(self.items), n=n, cutoff=0.75)
@@ -90,6 +99,10 @@ def load_catalog(path, spec: dict) -> Catalog:
         if sh["type"] == "column":   # тип записан в самом каталоге: «фильм» / «сериал»
             tc = sh["type_column"].strip().lower()
             if tc not in header:
+                if sh.get("default"):          # нет столбца «Тип» — тип по листу
+                    for r in data:
+                        cat.add(r[tcol], sh["default"])
+                    continue
                 missing.append(f"{sh['name']} (нет столбца {sh['type_column']})")
                 continue
             ti = header.index(tc)

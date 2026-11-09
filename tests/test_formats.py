@@ -143,3 +143,25 @@ def test_garbage(tmp_path):
     p.write_bytes(b"")
     with pytest.raises(ReadError):
         load_any(p)
+
+
+def test_html_xls_channel_column_iso_dates(tmp_path):
+    """Выгрузка как EPG_2026-11-022026-11-09.xls: HTML внутри, канал в столбце Channel, даты ISO."""
+    head = ["Channel", "Date", "Time", "Film Format", "Title Rus", "Title Eng", "Season #", "Episode #",
+            "Episode Name", "Age Restrict"]
+    rows = [["Suspenso_RUS", "2026-11-02", "06:07:45", "Movie", "Лепестки с шипами", "Petal Pushers", "1", "1",
+             "Лепестки с шипами", "18"],
+            ["Suspenso_RUS", "2026-11-02", "07:18:28", "Movie", "Шале", "The Chalet", "1", "1", "Эпизод 1", "18"]]
+    th = "".join(f"<td>{h}</td>" for h in head)
+    trs = "".join("<tr>" + "".join(f"<td>{v}</td>" for v in r) + "</tr>" for r in rows)
+    html = f"﻿<!DOCTYPE html><html><body><table border='1'><tr>{th}</tr><tr></tr>{trs}</table></body></html>"
+    src = tmp_path / "EPG_2026-11-022026-11-09.xls"
+    src.write_text(html, encoding="utf-8")
+    out, log = process(src, out_dir=tmp_path / "out")
+    assert out.name == "EPG_911_02_11_09_11_MAKE_SENSE.xlsx"
+    assert any("Suspenso_RUS" in l for l in log)
+    got = list(openpyxl.load_workbook(out).active.iter_rows(values_only=True))
+    data = [r for r in got[1:] if any(r)]
+    assert [(r[1], r[2], r[3], r[8], r[9]) for r in data] == [
+        ("02/11/2026", "06:05", "х/ф", None, "18+"),        # эпизод = названию -> очищен
+        ("02/11/2026", "07:15", "х/ф", None, "18+")]        # «Эпизод 1» -> очищен
