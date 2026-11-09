@@ -9,7 +9,7 @@ channels:
     code: FIGHT_CLUB
 
 header_anchors: ["Date", "Дата", "Start Time", "Время", "EPG_TITLE_RUS", "Название"]
-header_search_rows: 10
+header_search_rows: 15
 
 rules:
   # 1. Дата берётся из самого файла (там уже правильное число), только формат DD/MM/YYYY.

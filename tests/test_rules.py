@@ -119,3 +119,18 @@ def test_ambiguous_dates_checked_against_week(tmp_path):
         ["Дата", "Время", "Формат"], ["11/02/2026", "10:00", "x"]])  # месяц первым
     out, _ = process(src, out_dir=tmp_path)
     assert read(out)[1][1] == "02/11/2026"
+
+
+def test_title_row_above_header(tmp_path):
+    """Над шапкой строка «EPG 9-1-1 …» — шапка находится, заголовок отбрасывается."""
+    src = make(tmp_path / "EPG 9-1-1 09.11-15.11.xlsx", [
+        ["EPG 9-1-1  09.11 - 15.11.2026 msk time", None, None],
+        [None, None, None],
+        ["Дата", "Время", "Название (рус)", "Название эпизода", "Формат", "Маркер"],
+        [D(2026, 11, 9), dt.time(10, 3), "Фильм", "1 серия", "Movie", "12"],
+    ])
+    out, log = process(src, out_dir=tmp_path / "out")
+    rows = read(out)
+    assert rows[0] == HEAD
+    assert rows[1][4] == "Фильм" and rows[1][3] == "х/ф" and len(rows) == 2
+    assert any("шапка найдена в строке 3" in l for l in log)

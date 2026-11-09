@@ -22,7 +22,7 @@ channels:
 
 # Строка заголовков ищется в первых N строках по этим «якорным» колонкам
 header_anchors: ["Формат", "Format", "Film Format", "Название (рус)", "Title Rus", "Название эпизода", "Episode Name", "Channel", "Канал"]
-header_search_rows: 10
+header_search_rows: 15
 
 rules:
   # 0. Шапка и порядок столбцов как в образце «EPG 9-1-1 09.11 - 15.11.2026 msk time.xlsx».

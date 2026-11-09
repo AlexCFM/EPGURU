@@ -246,11 +246,41 @@ def row_is_empty(ws, r) -> bool:
     return all(_empty(ws.cell(r, c).value) for c in range(1, ws.max_column + 1))
 
 
+def known_headers(tpl) -> set[str]:
+    names = set(_norm(a) for a in tpl.get("header_anchors", []))
+    for rule in tpl["rules"]:
+        if rule["type"] == "layout":
+            for c in rule["columns"]:
+                names |= {_norm(x) for x in [c["name"]] + c.get("from", [])}
+        for key in ("columns", "title", "format", "target", "compare_with", "date_columns", "time_columns"):
+            v = rule.get(key)
+            if isinstance(v, list) and v and isinstance(v[0], str):
+                names |= {_norm(x) for x in v}
+            elif isinstance(v, str):
+                names.add(_norm(v))
+    names.discard("")
+    return names
+
+
+def best_header_row(ws, tpl, rows=15):
+    """Строка шапки — та, где больше всего знакомых названий столбцов (нужно хотя бы 2)."""
+    known = known_headers(tpl)
+    best, score = None, 1
+    for r in range(1, min(rows, ws.max_row) + 1):
+        hits = sum(1 for c in ws[r] if _norm(c.value) in known)
+        if hits > score:
+            best, score = r, hits
+    return best
+
+
 def process_sheet(ws, tpl, ctx, log):
-    hr = find_header_row(ws, tpl.get("header_anchors", []), tpl.get("header_search_rows", 10))
-    if hr == 1 and not ({_norm(c.value) for c in ws[1]} & {_norm(a) for a in tpl.get("header_anchors", [])}):
-        log.append(f"[{ws.title}] заголовки не найдены, лист пропущен")
+    hr = best_header_row(ws, tpl, tpl.get("header_search_rows", 15))
+    if hr is None:
+        if ws.max_row > 1 or ws.max_column > 1:
+            log.append(f"[{ws.title}] шапка не найдена (нет знакомых названий столбцов) — лист пропущен")
         return
+    if hr > 1:
+        log.append(f"[{ws.title}] шапка найдена в строке {hr}, строки выше неё отброшены")
     first = hr + 1
 
     for rule in tpl["rules"]:
