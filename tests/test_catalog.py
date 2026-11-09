@@ -230,3 +230,19 @@ def test_episode_name_with_series_title(tmp_path):
     out, _ = process(src, out_dir=tmp_path / "out")
     rows = list(openpyxl.load_workbook(out).active.iter_rows(min_row=2, values_only=True))
     assert rows[0][8] is None and rows[1][8] is None and rows[2][8] == "Голова медузы. Начало"
+
+
+def test_builtin_catalogs_shipped(tmp_path, monkeypatch):
+    """Каталоги из репозитория читаются и подхватываются, если на сайт ничего не загружено."""
+    import catalog as C
+    from pathlib import Path
+    builtin = Path(__file__).resolve().parent.parent / "catalogs"
+    monkeypatch.setattr(C, "BUILTIN_DIR", builtin)
+    for code in ("911", "VESNA", "PLAN_B"):
+        p = C.catalog_path(tmp_path, code)
+        assert p and p.parent == builtin
+        counts = load_catalog(p, SPEC[code]).counts()
+        assert counts["film"] > 100 and counts["series"] > 20
+    up = tmp_path / "911.xlsx"
+    up.write_bytes(SUSPENSE)
+    assert C.catalog_path(tmp_path, "911") == up          # загруженный через сайт главнее встроенного

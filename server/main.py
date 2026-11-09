@@ -204,14 +204,29 @@ def catalogs():
     for code, info in _catalog_specs().items():
         p = catalog_path(CATALOGS, code)
         item = {"code": code, "name": info["name"], "label": info["spec"].get("label", ""), "loaded": bool(p)}
-        if p:
-            meta = {}
+        if p and p.parent == CATALOGS:
             mp = CATALOGS / f"{code}.json"
             if mp.exists():
-                meta = json.loads(mp.read_text(encoding="utf-8"))
-            item.update(meta)
+                item.update(json.loads(mp.read_text(encoding="utf-8")))
+        elif p:
+            item.update(_builtin_meta(code, p, info["spec"]))
         out.append(item)
     return out
+
+
+_builtin_cache: dict = {}
+
+
+def _builtin_meta(code, p, spec):
+    key = (code, p.stat().st_mtime)
+    if key not in _builtin_cache:
+        try:
+            c = load_catalog(p, spec).counts()
+            _builtin_cache[key] = {"file": f"{p.name} (встроенный)", "uploaded": p.stat().st_mtime,
+                                   "films": c.get("film", 0), "series": c.get("series", 0), "other": c.get("keep", 0)}
+        except Exception as e:  # noqa: BLE001
+            _builtin_cache[key] = {"file": f"{p.name} (встроенный, ошибка: {e})"}
+    return _builtin_cache[key]
 
 
 @app.post("/api/catalogs/{code}")

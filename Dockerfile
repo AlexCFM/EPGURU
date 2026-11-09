@@ -5,6 +5,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY epg_processor.py fix_dates.py readers.py catalog.py ./
 COPY templates ./templates
+COPY catalogs ./catalogs
 COPY server ./server
 COPY web ./web
 RUN useradd -r -u 1000 epguru && mkdir -p /data && chown epguru /data

@@ -229,14 +229,25 @@ def auto_type(n_episodes: int, max_minutes: float, rule: dict) -> str:
     return "film"
 
 
-def catalog_path(catalog_dir, code) -> Path | None:
-    if not catalog_dir:
-        return None
+import os as _os
+# каталоги из репозитория (по умолчанию); в тестах отключаются через EPGURU_BUILTIN_CATALOGS=""
+BUILTIN_DIR = Path(_os.environ.get("EPGURU_BUILTIN_CATALOGS", Path(__file__).resolve().parent / "catalogs"))
+
+
+def _find(dirpath, code):
     from readers import SUPPORTED_EXT
-    for p in sorted(Path(catalog_dir).glob(f"{code}.*")):
+    if not dirpath or not Path(dirpath).is_dir():
+        return None
+    for p in sorted(Path(dirpath).glob(f"{code}.*")):
         if p.suffix.lower() in SUPPORTED_EXT:
             return p
     return None
+
+
+def catalog_path(catalog_dir, code, builtin=True) -> Path | None:
+    """Сначала загруженный через сайт, потом встроенный из репозитория."""
+    use_builtin = builtin and catalog_dir is not None and str(BUILTIN_DIR) not in ("", ".")
+    return _find(catalog_dir, code) or (_find(BUILTIN_DIR, code) if use_builtin else None)
 
 
 # ---------- чистка названий серий ----------
