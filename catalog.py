@@ -87,10 +87,18 @@ def load_catalog(path, spec: dict) -> Catalog:
             continue
         tcol = next(header.index(t.strip().lower()) for t in titles if t.strip().lower() in header)
         data = [r for r in rows[hi + 1:] if tcol < len(r) and r[tcol] not in (None, "")]
-        if sh["type"] == "auto":   # фильм, если у названия одна серия, иначе сериал
-            cnt = Counter(norm_title(r[tcol]) for r in data)
+        if sh["type"] == "auto":
+            dcol = None
+            if sh.get("duration") and sh["duration"].strip().lower() in header:
+                dcol = header.index(sh["duration"].strip().lower())
+            groups: dict[str, dict] = {}
             for r in data:
-                cat.add(r[tcol], "series" if cnt[norm_title(r[tcol])] > 1 else "film")
+                g = groups.setdefault(norm_title(r[tcol]), {"title": r[tcol], "n": 0, "max_min": 0.0})
+                g["n"] += 1
+                if dcol is not None and dcol < len(r):
+                    g["max_min"] = max(g["max_min"], duration_minutes(r[dcol]) or 0.0)
+            for g in groups.values():
+                cat.add(g["title"], auto_type(g["n"], g["max_min"], sh))
         else:
             for r in data:
                 cat.add(r[tcol], sh["type"])
@@ -99,6 +107,37 @@ def load_catalog(path, spec: dict) -> Catalog:
     if not cat.items:
         raise ValueError("Каталог пустой")
     return cat
+
+
+def duration_minutes(v):
+    """«00:43:58:04» (ЧЧ:ММ:СС:кадры), «00:43:58», time, timedelta, число минут -> минуты."""
+    import datetime as dt
+    if v is None or v == "":
+        return None
+    if isinstance(v, dt.timedelta):
+        return v.total_seconds() / 60
+    if isinstance(v, dt.time):
+        return v.hour * 60 + v.minute + v.second / 60
+    if isinstance(v, (int, float)):
+        return float(v) * 1440 if v < 1 else float(v)
+    m = re.match(r"^\s*(\d+):(\d{1,2})(?::(\d{1,2}))?", str(v))
+    if not m:
+        return None
+    return int(m.group(1)) * 60 + int(m.group(2)) + int(m.group(3) or 0) / 60
+
+
+def auto_type(n_episodes: int, max_minutes: float, rule: dict) -> str:
+    """Фильм или сериал по числу серий и хронометражу серии.
+    Сериал: серий больше film_max_episodes, ИЛИ серий не меньше long_from_episodes
+    и серия длиннее film_max_minutes. Иначе — фильм (в т.ч. 4 серии по ~45 мин, 2 серии по 90)."""
+    max_eps = rule.get("film_max_episodes", 4)
+    max_min = rule.get("film_max_minutes", 50)
+    long_from = rule.get("long_from_episodes", 3)
+    if n_episodes > max_eps:
+        return "series"
+    if n_episodes >= long_from and max_minutes and max_minutes > max_min:
+        return "series"
+    return "film"
 
 
 def catalog_path(catalog_dir, code) -> Path | None:

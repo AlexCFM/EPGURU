@@ -52,7 +52,9 @@ rules:
     compare_with: ["Название (рус)", "Title Rus"]
 
 # Каталоги каналов: какие листы файла каталога — фильмы, какие — сериалы.
-# type: film | series | auto (фильм, если у названия одна серия, иначе сериал) | keep (формат не трогать)
+# type: film | series | keep (формат не трогать) |
+#       auto — по числу серий и хронометражу: сериал, если серий больше film_max_episodes,
+#              или серий не меньше long_from_episodes и серия длиннее film_max_minutes; иначе фильм
 catalogs:
   "911":
     label: "INVENTORY SUSPENSE"
@@ -67,4 +69,5 @@ catalogs:
       - {name: "РОЖДЕСТВО",   type: film,   title: "Название (RU)", optional: true}
       - {name: "СЕРИАЛЫ",     type: series, title: "Название (RU)"}
       - {name: "СЕРИАЛЫ РУС", type: series, title: "Название (RU)", optional: true}
-      - {name: "РУССКОЕ",     type: auto,   title: "Название (RU)", optional: true}
+      - {name: "РУССКОЕ",     type: auto,   title: "Название (RU)", optional: true,
+         duration: "Duration", film_max_episodes: 4, film_max_minutes: 50, long_from_episodes: 3}
