@@ -134,3 +134,18 @@ def test_title_row_above_header(tmp_path):
     assert rows[0] == HEAD
     assert rows[1][4] == "Фильм" and rows[1][3] == "х/ф" and len(rows) == 2
     assert any("шапка найдена в строке 3" in l for l in log)
+
+
+def test_prime_time_911(tmp_path):
+    rows_in = [["Дата", "Время", "Название (рус)", "Формат"],
+               ["09.11.2026", "21:27:40", "Дом Мэнсона", "Movie"],     # 21:25 -> 21:30
+               ["10.11.2026", "21:30:10", "Пассаж", "Movie"],          # уже 21:30
+               ["10.11.2026", "21:57:00", "Сило", "Movie"],            # прайм уже есть -> не трогаем
+               ["11.11.2026", "22:06:00", "Лестэр", "Movie"],          # 22:05 -> 22:00
+               ["12.11.2026", "21:40:00", "Эпплтон", "Movie"]]         # дальше 5 минут -> не трогаем
+    src = make(tmp_path / "EPG 9-1-1 09.11-15.11.xlsx", rows_in)
+    out, _ = process(src, out_dir=tmp_path / "out")
+    assert [r[2] for r in read(out)[1:]] == ["21:30", "21:30", "21:55", "22:00", "21:40"]
+    src = make(tmp_path / "EPG VESNA 09.11-15.11.xlsx", rows_in)        # на VESNA правило не действует
+    out, _ = process(src, out_dir=tmp_path / "out2")
+    assert read(out)[1][2] == "21:25"

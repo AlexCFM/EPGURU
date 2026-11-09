@@ -57,6 +57,13 @@ rules:
     columns: ["Время", "Время начала", "Start Time", "Time"]
     step_minutes: 5
 
+  - type: prime_time                 # 9-1-1: прайм ровно в 21:30 или 22:00 (21:25/21:35 -> 21:30, 21:55/22:05 -> 22:00)
+    only_channels: ["911"]
+    date: ["дата"]
+    time: ["время"]
+    anchors: ["21:30", "22:00"]
+    tolerance_minutes: 5
+
   - type: date_format                # дата DD/MM/YYYY
     columns: ["Дата", "Date"]
     format: "DD/MM/YYYY"

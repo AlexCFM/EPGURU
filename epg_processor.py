@@ -290,6 +290,8 @@ def process_sheet(ws, tpl, ctx, log):
 
     for rule in tpl["rules"]:
         t = rule["type"]
+        if rule.get("only_channels") and str(ctx.get("code")) not in [str(x) for x in rule["only_channels"]]:
+            continue
         hmap = header_map(ws, hr)
         last = ws.max_row
 
@@ -472,6 +474,36 @@ def process_sheet(ws, tpl, ctx, log):
                     if is_bare_episode(v):
                         c.value, n = None, n + 1
             log.append(f"[{ws.title}] очищено «пустых» названий серий: {n}")
+
+        elif t == "prime_time":
+            # Прайм в сутки один: время в пределах ±tolerance от якоря (21:30 или 22:00) ставится ровно на якорь.
+            dcol, tcol = cols_for(hmap, rule["date"]), cols_for(hmap, rule["time"])
+            if not dcol or not tcol:
+                continue
+            anchors = [parse_time(a) for a in rule["anchors"]]
+            tol = rule.get("tolerance_minutes", 5)
+            mins = lambda x: x.hour * 60 + x.minute
+            days: dict = {}
+            for r in range(first, last + 1):
+                tm = parse_time(ws.cell(r, tcol[0]).value)
+                if tm is not None:
+                    days.setdefault(ws.cell(r, dcol[0]).value, []).append((r, tm))
+            fixed = []
+            for day, items in days.items():
+                if any(tm in anchors for _, tm in items):
+                    continue                      # прайм уже ровно в 21:30 / 22:00
+                best = None
+                for r, tm in items:
+                    for a in anchors:
+                        dist = abs(mins(tm) - mins(a))
+                        if 0 < dist <= tol and (best is None or dist < best[0]):
+                            best = (dist, r, tm, a)
+                if best:
+                    _, r, tm, a = best
+                    c = ws.cell(r, tcol[0])
+                    c.value = a.strftime("%H:%M") if isinstance(c.value, str) else a
+                    fixed.append(f"{day} {tm:%H:%M}→{a:%H:%M}")
+            log.append(f"[{ws.title}] прайм-тайм выровнен: {len(fixed)}" + (f" ({', '.join(fixed)})" if fixed else ""))
 
         elif t == "fill_descriptions":
             cats = ([ctx["catalog"]] if ctx.get("catalog") else []) + [c for _, c in ctx.get("others", [])]
@@ -762,7 +794,7 @@ def process(input_path, template_path=None, out_dir="output", original_name=None
         raise EPGError(f"Не удалось определить канал по имени файла: {name}")
     d1, m1, d2, m2 = detect_week(name, token)
 
-    ctx = {"months": {int(m1), int(m2)}}
+    ctx = {"months": {int(m1), int(m2)}, "code": code}
     ch_def = next((c for c in tpl["channels"] if c["code"] == code), {})
     ctx["channel_display"] = ch_def.get("display", code)
     if tpl.get("needs_year"):
