@@ -15,6 +15,7 @@ from pathlib import Path
 import openpyxl
 import yaml
 
+from catalog import catalog_path, is_bare_episode, load_catalog
 from readers import load_any
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -331,6 +332,46 @@ def process_sheet(ws, tpl, ctx, log):
                         c.value, n = s, n + 1
             log.append(f"[{ws.title}] значений с «{suf}»: {n}")
 
+        elif t == "catalog_format":
+            cat = ctx.get("catalog")
+            if cat is None:
+                log.append(f"[{ws.title}] каталог не загружен — сверка пропущена")
+                continue
+            tcols, fcols = cols_for(hmap, rule["title"]), cols_for(hmap, rule["format"])
+            if not tcols or not fcols:
+                log.append(f"[{ws.title}] нет столбца названия или формата — сверка пропущена")
+                continue
+            mapping = rule["mapping"]
+            changed, found, missing = 0, 0, {}
+            for r in range(first, last + 1):
+                title = ws.cell(r, tcols[0]).value
+                if _empty(title):
+                    continue
+                item = cat.lookup(title)
+                if not item:
+                    missing.setdefault(str(title).strip(), 0)
+                    missing[str(title).strip()] += 1
+                    continue
+                found += 1
+                new = mapping.get(item["type"])
+                c = ws.cell(r, fcols[0])
+                if new is not None and c.value != new:
+                    c.value, changed = new, changed + 1
+            log.append(f"[{ws.title}] сверка с каталогом: найдено {found}, формат исправлен {changed}, "
+                       f"нет в каталоге {sum(missing.values())}")
+            for title, n in sorted(missing.items()):
+                sug = cat.suggest(title)
+                log.append(f"   нет в каталоге: «{title}» ×{n}" + (f" — похоже: {', '.join(sug)}" if sug else ""))
+
+        elif t == "clean_episode_name":
+            n = 0
+            for col in cols_for(hmap, rule["columns"]):
+                for r in range(first, last + 1):
+                    c = ws.cell(r, col)
+                    if is_bare_episode(c.value):
+                        c.value, n = None, n + 1
+            log.append(f"[{ws.title}] очищено «пустых» названий серий: {n}")
+
         elif t == "clear_if_equal":
             tc, cc = cols_for(hmap, rule["target"]), cols_for(hmap, rule["compare_with"])
             n = 0
@@ -376,7 +417,8 @@ def template_for_channel(code: str) -> Path:
     raise EPGError(f"Нет шаблона для канала {code}")
 
 
-def process(input_path, template_path=None, out_dir="output", original_name=None, year=None, channel=None):
+def process(input_path, template_path=None, out_dir="output", original_name=None, year=None, channel=None,
+            catalog_dir=None):
     """channel — код канала, выбранный вручную (если в имени файла канала нет)."""
     name = original_name or Path(input_path).name
     if channel and not template_path:
@@ -402,7 +444,14 @@ def process(input_path, template_path=None, out_dir="output", original_name=None
             raise EPGError("Не удалось определить год расписания — укажите его вручную (--year)")
         ctx["start_date"] = dt.date(int(y), int(m1), int(d1))
 
+    spec = (tpl.get("catalogs") or {}).get(code)
+    cpath = catalog_path(catalog_dir, code) if spec else None
+    if cpath:
+        ctx["catalog"] = load_catalog(cpath, spec)
+
     log = [f"Шаблон: {tpl['name']} · канал {code} · неделя {d1}.{m1}–{d2}.{m2}"]
+    if spec:
+        log.append(f"Каталог: {'загружен' if cpath else 'НЕ ЗАГРУЖЕН'}")
     if kind != "xlsx":
         log.append(f"Исходный формат: {kind.upper()} → сохранено в XLSX")
     for ws in wb.worksheets:
@@ -427,11 +476,12 @@ def main():
     ap.add_argument("-t", "--template", help="YAML-шаблон; без него — автовыбор по имени файла")
     ap.add_argument("-o", "--out", default="output")
     ap.add_argument("--year", type=int, help="год расписания, если его нет в имени файла и данных")
+    ap.add_argument("--catalogs", help="папка с каталогами: <КОД_КАНАЛА>.xlsx, например 911.xlsx, VESNA.xlsx")
     a = ap.parse_args()
     ok = True
     for p in a.inputs:
         try:
-            _, log = process(p, a.template, a.out, year=a.year)
+            _, log = process(p, a.template, a.out, year=a.year, catalog_dir=a.catalogs)
             print("\n".join(log), end="\n\n")
         except Exception as e:
             ok = False

@@ -87,6 +87,17 @@ button{font:inherit}
 .log{grid-column:1/-1;margin:0;padding:12px 14px;background:#E9E5DC;border-radius:10px;font-family:var(--mono);font-size:12px;line-height:1.6;white-space:pre-wrap}
 .empty{padding:20px 0;color:var(--ink3);font-size:14px}
 
+/* каталоги */
+.hint{margin:0;font-size:14px;line-height:1.5;color:var(--ink2)}
+.cats{display:flex;flex-direction:column}
+.cat{display:grid;grid-template-columns:14px minmax(140px,1fr) minmax(0,2.4fr) 170px;gap:16px;align-items:center;padding:14px 0;border-bottom:1px solid #E2DDD2}
+.cat-name{display:flex;flex-direction:column;gap:4px}
+.cat-name b{font-family:var(--disp);font-size:16px}
+.cat-info{display:flex;flex-direction:column;gap:4px;min-width:0}
+.cat-info .f{font-family:var(--mono);font-size:13px;word-break:break-all}
+.cat-up{min-height:52px;font-size:13px;cursor:pointer}
+@media (max-width:640px){.cat{grid-template-columns:14px 1fr}.cat-info,.cat-up{grid-column:1/-1}}
+
 /* вход */
 .login{max-width:520px}
 .login .bezel{flex:none}

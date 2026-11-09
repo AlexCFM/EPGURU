@@ -54,6 +54,44 @@
     $('#chans').closest('div').style.opacity = dates ? '.45' : '1';
   }));
 
+  // ---------- каталоги ----------
+  async function loadCatalogs() {
+    const list = await api('/api/catalogs');
+    $('#cat-list').innerHTML = list.map((c) => {
+      const when = c.uploaded ? new Date(c.uploaded * 1000).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+      const info = c.loaded
+        ? `<span class="f">${esc(c.file || '')}</span><span class="label" style="letter-spacing:.04em">${esc(when)} · фильмов ${c.films ?? '—'} · сериалов ${c.series ?? '—'}${c.other ? ' · прочее ' + c.other : ''}</span>`
+        : '<span class="label" style="letter-spacing:.04em">каталог не загружен</span>';
+      return `<div class="cat">
+          <span class="dot${c.loaded ? ' on' : ''}" aria-hidden="true"></span>
+          <div class="cat-name"><b>${esc(c.name)}</b><span class="label">${esc(c.label || '')}</span></div>
+          <div class="cat-info">${info}</div>
+          <label class="key fkey cat-up">ЗАГРУЗИТЬ<input type="file" class="vh" data-code="${esc(c.code)}"
+            accept=".xlsx,.xlsm,.xls,.xml,.ods,.csv,.tsv,.txt,.htm,.html"></label>
+        </div>`;
+    }).join('') || '<div class="empty">Для каналов не настроены каталоги.</div>';
+    $('#cat-list').querySelectorAll('input[type=file]').forEach((inp) => inp.addEventListener('change', async () => {
+      const f = inp.files[0];
+      if (!f) return;
+      const fd = new FormData();
+      fd.append('file', f);
+      foot('ЗАГРУЗКА КАТАЛОГА…');
+      try {
+        const r = await api(`/api/catalogs/${encodeURIComponent(inp.dataset.code)}`, { method: 'POST', body: fd });
+        foot(`КАТАЛОГ ${inp.dataset.code}: ФИЛЬМОВ ${r.films}, СЕРИАЛОВ ${r.series}`);
+      } catch (e) {
+        if (e.message !== '401') { foot('КАТАЛОГ: ' + e.message.toUpperCase()); flash(); }
+      }
+      loadCatalogs();
+    }));
+  }
+  $('#k-catalog').addEventListener('click', () => {
+    const sec = $('#catalogs');
+    sec.hidden = !sec.hidden;
+    $('#k-catalog').classList.toggle('on', !sec.hidden);
+    if (!sec.hidden) { loadCatalogs(); sec.scrollIntoView({ behavior: 'smooth' }); }
+  });
+
   $('#k-history').addEventListener('click', () => $('#history').scrollIntoView({ behavior: 'smooth' }));
   $('#k-logout').addEventListener('click', async () => {
     await fetch('/api/logout', { method: 'POST' });

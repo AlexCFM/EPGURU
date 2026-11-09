@@ -27,6 +27,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from epg_processor import list_templates, load_template, process  # noqa: E402
+from catalog import catalog_path, load_catalog  # noqa: E402
 from fix_dates import fix_workbook  # noqa: E402
 from readers import SUPPORTED_EXT  # noqa: E402
 
@@ -40,6 +41,7 @@ COOKIE = "epguru_session"
 
 signer = TimestampSigner(SECRET, salt="epguru")
 JOBS = DATA / "jobs"
+CATALOGS = DATA / "catalogs"
 DB = DATA / "epguru.db"
 db_lock = threading.Lock()
 
@@ -54,6 +56,7 @@ def db():
 
 def init_db():
     JOBS.mkdir(parents=True, exist_ok=True)
+    CATALOGS.mkdir(parents=True, exist_ok=True)
     with closing(db()) as con, con:
         con.execute("""CREATE TABLE IF NOT EXISTS jobs(
             id TEXT PRIMARY KEY, created REAL, kind TEXT, src TEXT, out TEXT,
@@ -183,6 +186,64 @@ def download(job_id: str):
                         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
+# ---------- каталоги ----------
+
+def _catalog_specs():
+    specs = {}
+    for p in list_templates():
+        t = load_template(p)
+        names = {ch["code"]: ch["match"][0] for ch in t["channels"]}
+        for code, spec in (t.get("catalogs") or {}).items():
+            specs[str(code)] = {"spec": spec, "name": names.get(str(code), str(code)), "template": t["name"]}
+    return specs
+
+
+@app.get("/api/catalogs")
+def catalogs():
+    out = []
+    for code, info in _catalog_specs().items():
+        p = catalog_path(CATALOGS, code)
+        item = {"code": code, "name": info["name"], "label": info["spec"].get("label", ""), "loaded": bool(p)}
+        if p:
+            meta = {}
+            mp = CATALOGS / f"{code}.json"
+            if mp.exists():
+                meta = json.loads(mp.read_text(encoding="utf-8"))
+            item.update(meta)
+        out.append(item)
+    return out
+
+
+@app.post("/api/catalogs/{code}")
+async def upload_catalog(code: str, file: UploadFile = File(...)):
+    specs = _catalog_specs()
+    if code not in specs:
+        raise HTTPException(404, "Для этого канала каталог не предусмотрен")
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in SUPPORTED_EXT:
+        raise HTTPException(400, "Формат не поддерживается")
+    data = await file.read(MAX_MB * 1024 * 1024 + 1)
+    if len(data) > MAX_MB * 1024 * 1024:
+        raise HTTPException(400, f"Файл больше {MAX_MB} МБ")
+    tmp = CATALOGS / f".upload-{uuid.uuid4().hex}{ext}"
+    tmp.write_bytes(data)
+    try:
+        from starlette.concurrency import run_in_threadpool
+        cat = await run_in_threadpool(load_catalog, tmp, specs[code]["spec"])
+    except Exception as e:  # noqa: BLE001
+        tmp.unlink(missing_ok=True)
+        raise HTTPException(400, f"Каталог не читается: {e}")
+    for old in CATALOGS.glob(f"{code}.*"):
+        if old.suffix != ".json":
+            old.unlink()
+    tmp.rename(CATALOGS / f"{code}{ext}")
+    counts = cat.counts()
+    meta = {"file": file.filename, "uploaded": time.time(),
+            "films": counts.get("film", 0), "series": counts.get("series", 0), "other": counts.get("keep", 0)}
+    (CATALOGS / f"{code}.json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+    return {"code": code, **meta}
+
+
 # ---------- обработка ----------
 
 async def _store(upload: UploadFile, job_dir: Path) -> Path:
@@ -209,7 +270,8 @@ def _run(kind, upload_name, job_dir, src, template, channel):
             tpl = next((p for p in list_templates() if p.stem == template), None) if template else None
             if template and not tpl:
                 raise ValueError("Неизвестный шаблон")
-            out, log = process(src, tpl, job_dir / "out", original_name=upload_name, channel=channel or None)
+            out, log = process(src, tpl, job_dir / "out", original_name=upload_name, channel=channel or None,
+                               catalog_dir=CATALOGS)
             job["template"] = log[0].split("·")[0].replace("Шаблон:", "").strip()
         else:
             out = job_dir / "out" / f"{Path(upload_name).stem}_dates_fixed.xlsx"

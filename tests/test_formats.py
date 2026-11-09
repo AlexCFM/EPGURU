@@ -11,9 +11,9 @@ from readers import ReadError, load_any, sniff
 
 HEAD = ["Дата", "Время", "Unnamed: 2", "Название (рус)", "Название эпизода", "Формат", "Возрастное ограничение"]
 ROWS = [["09.11.2026", "10:03", "x", "Фильм", "Фильм", "Movie", "12"],
-        ["10.11.2026", "23:59", "x", "Сериал", "Серия 1", "Series", "18 years"]]
+        ["10.11.2026", "23:59", "x", "Сериал", "Серия 1. Начало", "Series", "18 years"]]
 EXPECTED = [("09/11/2026", "10:00", "Фильм", None, "х/ф", "12+"),
-            ("10/11/2026", "23:55", "Сериал", "Серия 1", "Series", "18+")]
+            ("10/11/2026", "23:55", "Сериал", "Серия 1. Начало", "Series", "18+")]
 NAME = "EPG PLAN B 09.11-15.11"
 
 
@@ -61,7 +61,7 @@ def test_xls_binary(tmp_path):
     for c, h in enumerate(HEAD):
         ws.write(0, c, h)
     data = [[dt.datetime(2026, 11, 9), dt.time(10, 3), "x", "Фильм", "Фильм", "Movie", 12],
-            [dt.datetime(2026, 11, 10), dt.time(23, 59), "x", "Сериал", "Серия 1", "Series", "18 years"]]
+            [dt.datetime(2026, 11, 10), dt.time(23, 59), "x", "Сериал", "Серия 1. Начало", "Series", "18 years"]]
     for r, row in enumerate(data, 1):
         for c, v in enumerate(row):
             ws.write(r, c, v, datefmt if c == 0 else timefmt if c == 1 else xlwt.Style.default_style)

@@ -59,7 +59,7 @@
           <button type="button" class="key fkey" data-mode="dates" aria-pressed="false">ДАТЫ</button>
           <button type="button" class="key fkey" id="k-history">ИСТОРИЯ</button>
           <a class="key fkey" href="https://github.com/AlexCFM/EPGURU/tree/main/templates" target="_blank" rel="noopener">ШАБЛОНЫ</a>
-          <button type="button" class="key fkey" disabled>КАТАЛОГ<small>СКОРО</small></button>
+          <button type="button" class="key fkey" id="k-catalog">КАТАЛОГ</button>
           <button type="button" class="key fkey dark" id="k-logout">ВЫХОД</button>
         </div>
       </div>
@@ -69,6 +69,12 @@
       <span class="label">КАНАЛ · ШАБЛОН ОБРАБОТКИ</span>
       <div class="chans" id="chans"></div>
     </div>
+  </section>
+
+  <section class="tape" id="catalogs" aria-label="Каталоги" hidden>
+    <div class="tape-head"><h2>КАТАЛОГИ</h2><span class="label">фильм → х/ф · сериал → сериал</span></div>
+    <p class="hint">Загрузите свежий каталог канала (Excel, CSV, XML). Новый файл заменяет старый. По нему EPG сверяется при каждой обработке.</p>
+    <div class="cats" id="cat-list"></div>
   </section>
 
   <section class="tape" id="history" aria-label="Очередь и история">
