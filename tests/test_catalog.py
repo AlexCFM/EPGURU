@@ -118,7 +118,7 @@ def run_epg(tmp_path, catalogs=True):
 
 def test_epg_with_catalog(tmp_path):
     rows, log = run_epg(tmp_path)
-    assert [(r[2], r[3], r[4]) for r in rows] == [
+    assert [(r[4], r[8], r[3]) for r in rows] == [
         ("Береговая охрана", None, "сериал"),                  # «1 серия» вычищено, сериал по каталогу
         ("Береговая охрана", "Эпизод 3. Татьяна", "сериал"),   # с названием — не трогаем
         ("Девушка в поезде", None, "х/ф"),                     # фильм по каталогу
@@ -133,8 +133,8 @@ def test_epg_with_catalog(tmp_path):
 
 def test_epg_without_catalog(tmp_path):
     rows, log = run_epg(tmp_path, catalogs=False)
-    assert rows[0][4] == "х/ф"          # без каталога — только Movie -> х/ф
-    assert rows[0][3] is None           # чистка серий работает и без каталога
+    assert rows[0][3] == "х/ф"          # без каталога — только Movie -> х/ф
+    assert rows[0][8] is None           # чистка серий работает и без каталога
     assert "Каталог: НЕ ЗАГРУЖЕН" in "\n".join(log)
 
 
@@ -168,7 +168,7 @@ def test_catalog_api(client):
     job = client.post("/api/process", files=[("files", ("EPG 911 09.11-15.11.xlsx", buf.getvalue()))]).json()[0]
     assert job["status"] == "done", job
     out = openpyxl.load_workbook(io.BytesIO(client.get(f"/api/jobs/{job['id']}/download").content)).active
-    assert out.cell(2, 5).value == "сериал" and out.cell(2, 4).value is None
+    assert out.cell(2, 4).value == "сериал" and out.cell(2, 9).value is None
 
 
 def test_column_typed_catalog(tmp_path):

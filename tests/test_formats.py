@@ -23,13 +23,15 @@ def run(tmp_path, ext, data):
     out, log = process(src, out_dir=tmp_path / "out")
     assert out.suffix == ".xlsx"
     rows = list(openpyxl.load_workbook(out).active.iter_rows(values_only=True))
+    h = list(rows[0])
+    cols = [h.index(c) for c in ("дата", "время", "название (рус)", "название эпизода", "формат", "маркер")]
     norm = []
     for r in rows[1:]:
-        d, t = r[0], r[1]
-        d = d.strftime("%d/%m/%Y") if isinstance(d, dt.datetime) else d
-        t = t.strftime("%H:%M") if isinstance(t, dt.time) else t
-        norm.append((d, t) + tuple(r[2:]))
-    assert rows[0] == tuple(h for h in HEAD if not h.startswith("Unnamed"))
+        v = [r[i] for i in cols]
+        v[0] = v[0].strftime("%d/%m/%Y") if isinstance(v[0], dt.datetime) else v[0]
+        v[1] = v[1].strftime("%H:%M") if isinstance(v[1], dt.time) else v[1]
+        norm.append(tuple(v))
+    assert h[0] == "канал" and len(h) == 16
     assert norm == EXPECTED
     return log
 

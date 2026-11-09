@@ -258,6 +258,11 @@ def process_sheet(ws, tpl, ctx, log):
         hmap = header_map(ws, hr)
         last = ws.max_row
 
+        if t == "layout":
+            apply_layout(ws, hr, rule, ctx, log)
+            hr, first = 1, 2
+            continue
+
         if t == "drop_columns_prefix":
             pref = rule["prefix"].lower()
             to_drop = sorted((c.column for c in ws[hr]
@@ -429,6 +434,77 @@ def process_sheet(ws, tpl, ctx, log):
             raise EPGError(f"Неизвестное правило: {t}")
 
 
+_NAMES = re.compile(r"^[^\W\d_][^,.;!?]{1,60}(,\s*[^\W\d_][^,.;!?]{1,60}){1,}$")
+
+
+def _looks_like_actors(v) -> bool:
+    """«Иван Троян,Тереза Рамба,Онджей Ветхи» — список имён через запятую, без предложений."""
+    return isinstance(v, str) and bool(_NAMES.match(v.strip())) and len(v) < 400
+
+
+def apply_layout(ws, hr, rule, ctx, log):
+    """Привести лист к целевой шапке и порядку столбцов. Неизвестные столбцы отбрасываются (пишутся в лог)."""
+    src_hdr = [_norm(c.value) for c in ws[hr]]
+    rows = [[c.value for c in r] for r in ws.iter_rows(min_row=hr + 1, max_row=ws.max_row)]
+    target = rule["columns"]
+    picks, used = [], set()
+    for col in target:
+        aliases = [_norm(a) for a in [col["name"]] + col.get("from", [])]
+        idx = next((src_hdr.index(a) for a in aliases if a in src_hdr), None)
+        picks.append(idx)
+        if idx is not None:
+            used.add(idx)
+    dropped = [ws.cell(hr, i + 1).value for i, h in enumerate(src_hdr)
+               if h and i not in used and not h.startswith("unnamed")]
+    out, empty = [], 0
+    for r in rows:
+        vals = [r[i] if i is not None and i < len(r) else None for i in picks]
+        if all(_empty(v) for v in vals):
+            empty += 1
+            continue
+        out.append(vals)
+    names = [c["name"] for c in target]
+
+    def ci(key):
+        return next((i for i, c in enumerate(target) if c.get("role") == key), None)
+
+    # канал: значение из выгрузки -> как принято у нас (Suspenso_RUS -> 911)
+    ch = ci("channel")
+    if ch is not None and ctx.get("channel_display") is not None:
+        for v in out:
+            v[ch] = ctx["channel_display"]
+    # числа: сезон, серия, год
+    for i, c in enumerate(target):
+        if c.get("int"):
+            for v in out:
+                if isinstance(v[i], str) and re.fullmatch(r"\s*\d+\s*", v[i]):
+                    v[i] = int(v[i])
+                elif isinstance(v[i], float) and v[i].is_integer():
+                    v[i] = int(v[i])
+    # сдвиг в выгрузке: актёры лежат в «описании», а «Актёры» пустые
+    sd, ld, ac = ci("desc_short"), ci("desc_long"), ci("actors")
+    if None not in (sd, ac):
+        filled = [v for v in out if not _empty(v[sd])]
+        if filled and all(_empty(v[ac]) for v in out) and \
+                sum(_looks_like_actors(v[sd]) for v in filled) >= 0.8 * len(filled):
+            for v in out:
+                if _looks_like_actors(v[sd]):
+                    v[ac], v[sd] = v[sd], None
+            log.append(f"[{ws.title}] актёры перенесены из «{names[sd]}» в «{names[ac]}» (сдвиг в выгрузке)")
+
+    ws.delete_rows(1, ws.max_row)
+    ws.append(names)
+    for v in out:
+        ws.append(v)
+    if ws.max_column > len(names):
+        ws.delete_cols(len(names) + 1, ws.max_column - len(names))
+    if rule.get("sheet_title"):
+        ws.title = rule["sheet_title"]
+    log.append(f"[{ws.title}] шапка приведена к образцу: {len(names)} столбцов"
+               + (f"; отброшены: {', '.join(map(str, dropped))}" if dropped else "")
+               + (f"; убрано пустых строк: {empty}" if empty else ""))
+
+
 def year_from_data(wb, tpl):
     """Год из уже заполненного столбца даты исходника (первая распознанная дата)."""
     names = []
@@ -490,6 +566,8 @@ def process(input_path, template_path=None, out_dir="output", original_name=None
     d1, m1, d2, m2 = detect_week(name, token)
 
     ctx = {"months": {int(m1), int(m2)}}
+    ch_def = next((c for c in tpl["channels"] if c["code"] == code), {})
+    ctx["channel_display"] = ch_def.get("display", code)
     if tpl.get("needs_year"):
         y = year or year_from_filename(name) or year_from_data(wb, tpl)
         if not y:

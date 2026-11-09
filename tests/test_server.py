@@ -51,7 +51,8 @@ def test_process_and_download(client):
     d = client.get(f"/api/jobs/{job['id']}/download")
     assert d.status_code == 200
     ws = openpyxl.load_workbook(io.BytesIO(d.content)).active
-    assert ws.cell(2, 2).value == dt.time(10, 0) and ws.cell(2, 5).value == "х/ф"
+    assert ws.cell(1, 1).value == "канал" and ws.cell(2, 1).value == "PLAN B"
+    assert ws.cell(2, 3).value == dt.time(10, 0) and ws.cell(2, 4).value == "х/ф"
     assert [j["id"] for j in client.get("/api/jobs").json()] == [job["id"]]
 
 

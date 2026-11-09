@@ -7,6 +7,8 @@ import pytest
 from epg_processor import EPGError, auto_template, detect_week, process
 
 D = dt.datetime
+HEAD = ("канал", "дата", "время", "формат", "название (рус)", "название (ориг)", "сезон", "номер серии",
+        "название эпизода", "маркер", "год", "жанр", "страна", "описание (короткое)", "описание (полное)", "Актёры")
 
 
 def make(path, rows):
@@ -49,10 +51,12 @@ def test_make_sense(tmp_path):
     out, _ = process(src, out_dir=tmp_path / "out")
     assert out.name == "EPG_911_09_11_15_11_MAKE_SENSE.xlsx"
     rows = read(out)
-    assert rows[0] == ("Дата", "Время", "Название (рус)", "Название эпизода", "Формат", "Возрастное ограничение")
-    assert rows[1][1:] == (dt.time(10, 0), "Фильм", None, "х/ф", "12+")
-    assert rows[2][1:] == (dt.time(10, 15), "Сериал", "Серия 1. Начало", "Series", "18+")
-    assert rows[3] == ("10/11/2026", "23:55", "Шоу", None, "Movie ", "16+")   # "Movie " не точное совпадение
+    assert rows[0] == HEAD
+    pick = lambda r: (r[1], r[2], r[4], r[8], r[3], r[9])      # дата, время, название, эпизод, формат, маркер
+    assert all(r[0] == 911 for r in rows[1:])                   # столбец «канал» заполнен
+    assert pick(rows[1])[1:] == (dt.time(10, 0), "Фильм", None, "х/ф", "12+")
+    assert pick(rows[2])[1:] == (dt.time(10, 15), "Сериал", "Серия 1. Начало", "Series", "18+")
+    assert pick(rows[3]) == ("10/11/2026", "23:55", "Шоу", None, "Movie ", "16+")   # "Movie " не точное совпадение
 
 
 # ---------- FIGHT CLUB ----------
@@ -98,9 +102,9 @@ def test_dates_any_input_format(tmp_path):
     ])
     out, _ = process(src, out_dir=tmp_path)
     ws = openpyxl.load_workbook(out).active
-    assert [ws.cell(r, 1).value for r in range(2, 6)] == ["15/11/2026", "09/11/2026", "15/11/2026", "09/11/2026"]
-    assert ws.cell(6, 1).value == D(2026, 11, 9) and ws.cell(7, 1).value == D(2026, 11, 9)
-    assert ws.cell(7, 1).number_format == r"DD\/MM\/YYYY"
+    assert [ws.cell(r, 2).value for r in range(2, 6)] == ["15/11/2026", "09/11/2026", "15/11/2026", "09/11/2026"]
+    assert ws.cell(6, 2).value == D(2026, 11, 9) and ws.cell(7, 2).value == D(2026, 11, 9)
+    assert ws.cell(7, 2).number_format == r"DD\/MM\/YYYY"
 
 
 def test_ambiguous_dates_checked_against_week(tmp_path):
@@ -109,9 +113,9 @@ def test_ambiguous_dates_checked_against_week(tmp_path):
         ["02/11/2026", "10:00", "x"], ["08/11/2026", "10:00", "x"],   # день первым: всё ноябрь
     ])
     out, _ = process(src, out_dir=tmp_path)
-    assert [r[0] for r in read(out)[1:]] == ["02/11/2026", "08/11/2026"]
+    assert [r[1] for r in read(out)[1:]] == ["02/11/2026", "08/11/2026"]
 
     src = make(tmp_path / "PLAN B 02.11-08.11.xlsx", [
         ["Дата", "Время", "Формат"], ["11/02/2026", "10:00", "x"]])  # месяц первым
     out, _ = process(src, out_dir=tmp_path)
-    assert read(out)[1][0] == "02/11/2026"
+    assert read(out)[1][1] == "02/11/2026"

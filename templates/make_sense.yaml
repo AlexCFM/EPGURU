@@ -5,20 +5,48 @@ name: MAKE SENSE
 output_name: "EPG_{channel}_{d1}_{m1}_{d2}_{m2}_MAKE_SENSE.xlsx"
 
 # Канал определяется по имени исходного файла (порядок важен)
+# display — что пишется в столбец «канал»; values — как канал записан в выгрузках (столбец Channel)
 channels:
   - match: ["PLAN B", "PLAN_B", "PLANB"]
     code: PLAN_B
+    display: "PLAN B"
+    values: ["PlanB", "Plan B", "PlanB_RUS", "Plan_B_RUS", "PLAN B"]
   - match: ["9-1-1", "911"]
     code: "911"
-    values: ["Suspenso_RUS", "Suspense_RUS", "Suspense"]
+    display: 911
+    values: ["Suspenso_RUS", "Suspense_RUS", "Suspenso", "Suspense", "911"]
   - match: ["VESNA"]
     code: VESNA
+    display: "VESNA"
+    values: ["Romance_RUS", "Romanse_RUS", "Romance", "Романс", "VESNA"]
 
 # Строка заголовков ищется в первых N строках по этим «якорным» колонкам
-header_anchors: ["Формат", "Format", "Film Format", "Название (рус)", "Title Rus", "Название эпизода", "Episode Name"]
+header_anchors: ["Формат", "Format", "Film Format", "Название (рус)", "Title Rus", "Название эпизода", "Episode Name", "Channel", "Канал"]
 header_search_rows: 10
 
 rules:
+  # 0. Шапка и порядок столбцов как в образце «EPG 9-1-1 09.11 - 15.11.2026 msk time.xlsx».
+  #    from — как этот столбец может называться во входных файлах.
+  - type: layout
+    sheet_title: "Лист1"
+    columns:
+      - {name: "канал",               role: channel, from: ["Channel", "Канал"]}
+      - {name: "дата",                from: ["Date", "Дата"]}
+      - {name: "время",               from: ["Time", "Время", "Start Time", "Время начала"]}
+      - {name: "формат",              from: ["Film Format", "Format", "Формат"]}
+      - {name: "название (рус)",      from: ["Title Rus", "Название (рус)", "Название"]}
+      - {name: "название (ориг)",     from: ["Title Eng", "Title Orig", "Original Title", "Название (ориг)", "Название (англ)"]}
+      - {name: "сезон",               int: true, from: ["Season #", "Season#", "Season", "Сезон"]}
+      - {name: "номер серии",         int: true, from: ["Episode #", "Episode#", "Episode", "Номер серии", "Серия"]}
+      - {name: "название эпизода",    from: ["Episode Name", "Название эпизода"]}
+      - {name: "маркер",              from: ["Age Restrict", "Age Rating", "Возрастное ограничение", "Маркер", "Возраст"]}
+      - {name: "год",                 int: true, from: ["Year", "Год"]}
+      - {name: "жанр",                from: ["Movie Genre", "Genre", "Жанр"]}
+      - {name: "страна",              from: ["Country", "Страна"]}
+      - {name: "описание (короткое)", role: desc_short, from: ["Description Short", "Описание (короткое)", "Short Description"]}
+      - {name: "описание (полное)",   role: desc_long, from: ["Description Long", "Описание (полное)", "Long Description"]}
+      - {name: "Актёры",              role: actors, from: ["Actors", "Актеры", "Cast", "В ролях"]}
+
   - type: drop_columns_prefix        # удалить столбцы, начинающиеся с Unnamed
     prefix: "unnamed"
 
@@ -49,8 +77,8 @@ rules:
     columns: ["Возрастное ограничение", "Маркер", "Age Restrict", "Age Rating", "Age"]
 
   - type: clear_if_equal             # очистить эпизод, если совпадает с названием
-    target: ["Название эпизода", "Episode Name"]
-    compare_with: ["Название (рус)", "Title Rus"]
+    target: ["название эпизода", "Episode Name"]
+    compare_with: ["название (рус)", "Title Rus"]
 
 # Каталоги каналов: какие листы файла каталога — фильмы, какие — сериалы.
 # type: film | series | keep (формат не трогать) |
