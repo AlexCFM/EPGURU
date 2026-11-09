@@ -73,7 +73,10 @@ catalogs:
       - {name: "РУССКОЕ",     type: auto,   title: "Название (RU)", optional: true,
          duration: "Duration", film_max_episodes: 4, film_max_minutes: 55, long_from_episodes: 3}
   PLAN_B:
-    label: "PLAN B (столбец «Тип»)"
+    label: "PLAN B · ФИЛЬМЫ / СЕРИАЛЫ / MAURIS"
     sheets:
-      - {name: "КАТАЛОГ", type: column, title: "Название (RU)", type_column: "Тип",
-         values: {"фильм": film, "сериал": series}}
+      - {name: "ФИЛЬМЫ",    type: column, title: "Название (RU)", type_column: "Тип", optional: true}
+      - {name: "СЕРИАЛЫ",   type: column, title: "Название (RU)", type_column: "Тип", optional: true}
+      - {name: "MAURIS",    type: column, title: "Название (RU)", type_column: "Тип", optional: true}
+      - {name: "НЕ РЕШЕНО", type: column, title: "Название (RU)", type_column: "Тип", optional: true}
+      - {name: "КАТАЛОГ",   type: column, title: "Название (RU)", type_column: "Тип", optional: true}
