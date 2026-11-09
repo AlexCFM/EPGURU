@@ -420,6 +420,24 @@ def process_sheet(ws, tpl, ctx, log):
                         c.value, n = None, n + 1
             log.append(f"[{ws.title}] очищено «пустых» названий серий: {n}")
 
+        elif t == "film_clear_episode":
+            fcol = cols_for(hmap, rule["format"])
+            clear = cols_for(hmap, rule["columns"])
+            n = 0
+            if fcol:
+                for r in range(first, last + 1):
+                    if str(ws.cell(r, fcol[0]).value or "").strip() == rule.get("film_value", "х/ф"):
+                        hit = False
+                        for c in clear:
+                            if not _empty(ws.cell(r, c).value):
+                                ws.cell(r, c).value, hit = None, True
+                        n += hit
+            log.append(f"[{ws.title}] у фильмов очищены сезон/серия/название серии: {n}")
+
+        elif t == "style":
+            apply_style(ws, hr, rule)
+            log.append(f"[{ws.title}] оформление применено")
+
         elif t == "clear_if_equal":
             tc, cc = cols_for(hmap, rule["target"]), cols_for(hmap, rule["compare_with"])
             n = 0
@@ -503,6 +521,79 @@ def apply_layout(ws, hr, rule, ctx, log):
     log.append(f"[{ws.title}] шапка приведена к образцу: {len(names)} столбцов"
                + (f"; отброшены: {', '.join(map(str, dropped))}" if dropped else "")
                + (f"; убрано пустых строк: {empty}" if empty else ""))
+
+
+def apply_style(ws, hr, rule):
+    """Читаемый EPG: ширины, перенос, границы, шапка, закрепление, разделение по дням, печать."""
+    import math
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.utils import get_column_letter
+
+    font = rule.get("font", "Arial")
+    size = rule.get("size", 10)
+    hdr = [str(c.value or "") for c in ws[hr]]
+    widths = {_norm(k): v for k, v in rule.get("widths", {}).items()}
+    center = {_norm(c) for c in rule.get("center", [])}
+    thin = Side(style="thin", color=rule.get("border_color", "BFBFBF"))
+    day_side = Side(style="medium", color=rule.get("day_border_color", "7F7F7F"))
+    fills = [PatternFill("solid", fgColor=c) for c in rule.get("day_fills", ["FFFFFF", "F3F6F9"])]
+    head_fill = PatternFill("solid", fgColor=rule.get("header_fill", "3B3835"))
+    head_font = Font(name=font, size=size, bold=True, color=rule.get("header_font_color", "FFFFFF"))
+    body_font = Font(name=font, size=size)
+    title_font = Font(name=font, size=size, bold=True)
+    bold_cols = {_norm(c) for c in rule.get("bold", [])}
+    ncol = len(hdr)
+
+    col_w = []
+    for i, h in enumerate(hdr, 1):
+        w = widths.get(_norm(h), 14)
+        col_w.append(w)
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    for i, h in enumerate(hdr, 1):
+        c = ws.cell(hr, i)
+        c.font, c.fill = head_font, head_fill
+        c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        c.border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    ws.row_dimensions[hr].height = rule.get("header_height", 30)
+
+    day_col = next((i for i, h in enumerate(hdr, 1) if _norm(h) == _norm(rule.get("day_column", ""))), None)
+    line_h = size * 1.35
+    prev_day, band = object(), -1
+    for r in range(hr + 1, ws.max_row + 1):
+        day = ws.cell(r, day_col).value if day_col else None
+        new_day = day_col and day != prev_day
+        if new_day:
+            band += 1
+            prev_day = day
+        fill = fills[band % len(fills)] if day_col else None
+        lines = 1
+        for i in range(1, ncol + 1):
+            c = ws.cell(r, i)
+            h = _norm(hdr[i - 1])
+            c.font = title_font if h in bold_cols else body_font
+            c.alignment = Alignment(horizontal="center" if h in center else "left",
+                                    vertical="top", wrap_text=True)
+            c.border = Border(left=thin, right=thin, bottom=thin,
+                              top=day_side if (new_day and r > hr + 1) else thin)
+            if fill is not None:
+                c.fill = fill
+            if c.value is not None:
+                text = str(c.value)
+                chars = max(1.0, col_w[i - 1] * 1.2)    # Arial 10: ~1.2 символа на единицу ширины, с запасом
+                need = sum(max(1, math.ceil(len(part) / chars)) for part in text.split("\n"))
+                lines = max(lines, need)
+        ws.row_dimensions[r].height = round(line_h * lines + 6, 1)
+
+    ws.freeze_panes = rule.get("freeze", "A2")
+    ws.auto_filter.ref = f"A{hr}:{get_column_letter(ncol)}{ws.max_row}"
+    ws.sheet_view.zoomScale = rule.get("zoom", 100)
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.paperSize = ws.PAPERSIZE_A4
+    ws.page_setup.fitToWidth, ws.page_setup.fitToHeight = 1, 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.print_title_rows = f"{hr}:{hr}"
+    ws.page_margins.left = ws.page_margins.right = 0.3
 
 
 def year_from_data(wb, tpl):
