@@ -674,8 +674,11 @@ def apply_style(ws, hr, rule):
             c = ws.cell(r, i)
             h = _norm(hdr[i - 1])
             c.font = title_font if h in bold_cols else body_font
-            c.alignment = Alignment(horizontal="center" if h in center else "left",
-                                    vertical="top", wrap_text=True)
+            if rule.get("align") == "center":
+                c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            else:
+                c.alignment = Alignment(horizontal="center" if h in center else "left",
+                                        vertical="top", wrap_text=True)
             c.border = Border(left=thin, right=thin, bottom=thin,
                               top=day_side if (new_day and r > hr + 1) else thin)
             if fill is not None:
@@ -687,14 +690,15 @@ def apply_style(ws, hr, rule):
                 lines = max(lines, need)
         ws.row_dimensions[r].height = round(line_h * lines + 6, 1)
 
-    ws.freeze_panes = rule.get("freeze", "A2")
+    ws.freeze_panes = rule.get("freeze")          # нет в шаблоне — ничего не закрепляется
     ws.auto_filter.ref = f"A{hr}:{get_column_letter(ncol)}{ws.max_row}" if rule.get("filter") else None
     ws.sheet_view.zoomScale = rule.get("zoom", 100)
     ws.page_setup.orientation = "landscape"
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
     ws.page_setup.fitToWidth, ws.page_setup.fitToHeight = 1, 0
     ws.sheet_properties.pageSetUpPr.fitToPage = True
-    ws.print_title_rows = f"{hr}:{hr}"
+    if rule.get("print_titles"):
+        ws.print_title_rows = f"{hr}:{hr}"
     ws.page_margins.left = ws.page_margins.right = 0.3
 
 

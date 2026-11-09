@@ -246,3 +246,14 @@ def test_builtin_catalogs_shipped(tmp_path, monkeypatch):
     up = tmp_path / "911.xlsx"
     up.write_bytes(SUSPENSE)
     assert C.catalog_path(tmp_path, "911") == up          # загруженный через сайт главнее встроенного
+
+
+def test_style_centered_no_freeze(tmp_path):
+    rows, _ = run_epg(tmp_path)
+    out = next((tmp_path / "out").glob("*.xlsx"))
+    ws = openpyxl.load_workbook(out).active
+    assert ws.freeze_panes is None and ws.auto_filter.ref is None and ws.print_title_rows is None
+    for r in (1, 2):
+        for c in (1, 5, 14):
+            a = ws.cell(r, c).alignment
+            assert (a.horizontal, a.vertical, a.wrap_text) == ("center", "center", True)
