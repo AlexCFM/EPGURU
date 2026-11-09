@@ -33,9 +33,50 @@ def _strip_parens(s: str) -> str:
     return re.sub(r"\s*\([^)]*\)\s*", " ", str(s)).strip()
 
 
+def _num(v):
+    """«1», 1, 1.0, «01» -> «1»; пусто -> None."""
+    if v is None or str(v).strip() == "":
+        return None
+    m = re.match(r"^\s*0*(\d+)(?:\.0+)?\s*$", str(v))
+    return m.group(1) if m else None
+
+
 class Catalog:
     def __init__(self):
         self.items: dict[str, dict] = {}   # ключ -> {"title", "type"}
+        self.desc: dict[tuple, tuple] = {}  # (название, сезон, серия) -> (короткое, полное)
+        self.desc_by_title: dict[str, set] = {}
+
+    def add_desc(self, title, season, episode, short, long):
+        short = str(short).strip() if short not in (None, "") else None
+        long = str(long).strip() if long not in (None, "") else None
+        if not (short or long) or title in (None, ""):
+            return
+        for t in {norm_title(title), norm_title(_strip_parens(title))}:
+            if not t:
+                continue
+            s, e = _num(season), _num(episode)
+            for key in ((t, s, e), (t, None, e), (t, None, None)):
+                self.desc.setdefault(key, (short, long))
+            self.desc_by_title.setdefault(t, set()).add((short, long))
+
+    def describe(self, title, season=None, episode=None):
+        hit = self._describe(norm_title(title), _num(season), _num(episode))
+        if hit:
+            return hit
+        m = re.match(r"^(.*\D)\s+(\d{1,2})$", norm_title(title))      # «Тайны Лауры 3» — сезон в названии
+        if m:
+            return self._describe(m.group(1).strip(), _num(season) or m.group(2), _num(episode))
+        return None
+
+    def _describe(self, t, s, e):
+        for key in ((t, s, e), (t, None, e)):
+            if key[2] is not None and key in self.desc:
+                return self.desc[key]
+        # по одному названию — только если описание у названия одно (фильм или сериал с общим описанием)
+        if len(self.desc_by_title.get(t, ())) == 1 or (e is None and (t, None, None) in self.desc):
+            return self.desc.get((t, None, None))
+        return None
 
     def add(self, title, typ):
         if title is None or not str(title).strip():
@@ -64,16 +105,31 @@ class Catalog:
         seen = {}
         for v in self.items.values():
             seen[v["title"]] = v["type"]
-        return dict(Counter(seen.values()))
+        c = dict(Counter(seen.values()))
+        c["descriptions"] = len(self.desc_by_title)
+        return c
+
+
+def _h(x) -> str:
+    return re.sub(r"\s+", " ", str(x)).strip().lower() if x is not None else ""
 
 
 def _find_header(rows, col_names):
-    wanted = {c.strip().lower() for c in col_names}
+    wanted = {_h(c) for c in col_names}
     for i, r in enumerate(rows[:15]):
-        cells = [str(c).strip().lower() if c is not None else "" for c in r]
+        cells = [_h(c) for c in r]
         if wanted & set(cells):
             return i, cells
     return None, None
+
+
+def _col(header, name):
+    if not name:
+        return None
+    for n in (name if isinstance(name, list) else [name]):
+        if _h(n) in header:
+            return header.index(_h(n))
+    return None
 
 
 def load_catalog(path, spec: dict) -> Catalog:
@@ -94,10 +150,19 @@ def load_catalog(path, spec: dict) -> Catalog:
         if hi is None:
             missing.append(f"{sh['name']} (нет столбца {titles[0]})")
             continue
-        tcol = next(header.index(t.strip().lower()) for t in titles if t.strip().lower() in header)
+        tcol = next(header.index(_h(t)) for t in titles if _h(t) in header)
         data = [r for r in rows[hi + 1:] if tcol < len(r) and r[tcol] not in (None, "")]
+        # описания (если в листе есть такие столбцы)
+        ds, dl = _col(header, sh.get("desc_short")), _col(header, sh.get("desc_long"))
+        sc, ec = _col(header, sh.get("season")), _col(header, sh.get("episode"))
+        if ds is not None or dl is not None:
+            get = lambda r, i: r[i] if i is not None and i < len(r) else None
+            for r in data:
+                cat.add_desc(r[tcol], get(r, sc), get(r, ec), get(r, ds), get(r, dl))
+        if sh["type"] == "descriptions":   # лист только с описаниями
+            continue
         if sh["type"] == "column":   # тип записан в самом каталоге: «фильм» / «сериал»
-            tc = sh["type_column"].strip().lower()
+            tc = _h(sh["type_column"])
             if tc not in header:
                 if sh.get("default"):          # нет столбца «Тип» — тип по листу
                     for r in data:
@@ -113,8 +178,8 @@ def load_catalog(path, spec: dict) -> Catalog:
                     cat.add(r[tcol], typ)
         elif sh["type"] == "auto":
             dcol = None
-            if sh.get("duration") and sh["duration"].strip().lower() in header:
-                dcol = header.index(sh["duration"].strip().lower())
+            if sh.get("duration") and _h(sh["duration"]) in header:
+                dcol = header.index(_h(sh["duration"]))
             groups: dict[str, dict] = {}
             for r in data:
                 g = groups.setdefault(norm_title(r[tcol]), {"title": r[tcol], "n": 0, "max_min": 0.0})
@@ -128,7 +193,7 @@ def load_catalog(path, spec: dict) -> Catalog:
                 cat.add(r[tcol], sh["type"])
     if missing:
         raise ValueError("В каталоге не найдены листы/столбцы: " + ", ".join(missing))
-    if not cat.items:
+    if not cat.items and not cat.desc:
         raise ValueError("Каталог пустой")
     return cat
 

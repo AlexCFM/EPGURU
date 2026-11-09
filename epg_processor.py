@@ -105,8 +105,11 @@ def detect_channel(filename: str, channels: list[dict]) -> tuple[str, str]:
 def detect_week(filename: str, channel_token: str) -> tuple[str, str, str, str]:
     iso = re.findall(r"(20\d{2})[-_.](\d{2})[-_.](\d{2})", Path(filename).stem)
     if len(iso) >= 2:
-        (_, m1, d1), (_, m2, d2) = iso[0], iso[1]
-        return d1, m1, d2, m2
+        a = dt.date(*map(int, iso[0]))
+        b = dt.date(*map(int, iso[1]))
+        if (b - a).days == 7:
+            b -= dt.timedelta(days=1)
+        return f"{a.day:02d}", f"{a.month:02d}", f"{b.day:02d}", f"{b.month:02d}"
     stem = Path(filename).stem.upper()
     if channel_token:
         stem = stem.replace(channel_token.upper(), " ")
@@ -119,8 +122,10 @@ def detect_week(filename: str, channel_token: str) -> tuple[str, str, str, str]:
 
 
 def year_from_filename(filename: str):
-    m = re.search(r"(?<!\d)(20\d{2})(?=[-_.]\d{2}[-_.]\d{2})", Path(filename).stem) or \
-        re.search(r"(?<!\d)(20\d{2})(?!\d)", Path(filename).stem)
+    iso = re.findall(r"(20\d{2})[-_.]\d{2}[-_.]\d{2}", Path(filename).stem)
+    if iso:
+        return int(iso[-1])
+    m = re.search(r"(?<!\d)(20\d{2})(?!\d)", Path(filename).stem)
     return int(m.group(1)) if m else None
 
 
@@ -420,12 +425,18 @@ def process_sheet(ws, tpl, ctx, log):
                 log.append(f"[{ws.title}] нет столбца названия или формата — сверка пропущена")
                 continue
             mapping = rule["mapping"]
-            changed, found, missing = 0, 0, {}
+            changed, found, missing, borrowed = 0, 0, {}, {}
             for r in range(first, last + 1):
                 title = ws.cell(r, tcols[0]).value
                 if _empty(title):
                     continue
                 item = cat.lookup(title)
+                if not item:
+                    for ocode, ocat in ctx.get("others", []):
+                        item = ocat.lookup(title)
+                        if item:
+                            borrowed[str(title).strip()] = ocode
+                            break
                 if not item:
                     missing.setdefault(str(title).strip(), 0)
                     missing[str(title).strip()] += 1
@@ -437,6 +448,8 @@ def process_sheet(ws, tpl, ctx, log):
                     c.value, changed = new, changed + 1
             log.append(f"[{ws.title}] сверка с каталогом: найдено {found}, формат исправлен {changed}, "
                        f"нет в каталоге {sum(missing.values())}")
+            for title, oc in sorted(borrowed.items()):
+                log.append(f"   «{title}» — нет в своём каталоге, тип взят из каталога {oc}")
             for title, n in sorted(missing.items()):
                 sug = cat.suggest(title)
                 log.append(f"   нет в каталоге: «{title}» ×{n}" + (f" — похоже: {', '.join(sug)}" if sug else ""))
@@ -449,6 +462,52 @@ def process_sheet(ws, tpl, ctx, log):
                     if is_bare_episode(c.value):
                         c.value, n = None, n + 1
             log.append(f"[{ws.title}] очищено «пустых» названий серий: {n}")
+
+        elif t == "fill_descriptions":
+            cats = ([ctx["catalog"]] if ctx.get("catalog") else []) + [c for _, c in ctx.get("others", [])]
+            tc, sc, ec = cols_for(hmap, rule["title"]), cols_for(hmap, rule["season"]), cols_for(hmap, rule["episode"])
+            dsc, dlc = cols_for(hmap, rule["desc_short"]), cols_for(hmap, rule["desc_long"])
+            if not cats or not tc or not (dsc or dlc):
+                log.append(f"[{ws.title}] описания: нет каталога с описаниями — пропущено")
+                continue
+            filled, nodesc = 0, {}
+            for r in range(first, last + 1):
+                title = ws.cell(r, tc[0]).value
+                if _empty(title):
+                    continue
+                need_s = dsc and _empty(ws.cell(r, dsc[0]).value)
+                need_l = dlc and _empty(ws.cell(r, dlc[0]).value)
+                if not (need_s or need_l):
+                    continue
+                season = ws.cell(r, sc[0]).value if sc else None
+                ep = ws.cell(r, ec[0]).value if ec else None
+                d = next((x for c in cats if (x := c.describe(title, season, ep))), None)
+                if not d:
+                    nodesc[str(title).strip()] = nodesc.get(str(title).strip(), 0) + 1
+                    continue
+                short, long = d
+                short, long = short or long, long or short
+                if need_s and short:
+                    ws.cell(r, dsc[0]).value = short
+                if need_l and long:
+                    ws.cell(r, dlc[0]).value = long
+                filled += 1
+            log.append(f"[{ws.title}] описания подставлены из каталогов: {filled}"
+                       + (f", не найдены для {sum(nodesc.values())}" if nodesc else ""))
+            for title, n in sorted(nodesc.items()):
+                log.append(f"   нет описания: «{title}» ×{n}")
+
+        elif t == "clear_same_original":
+            a, b = cols_for(hmap, rule["target"]), cols_for(hmap, rule["compare_with"])
+            n = 0
+            if a and b:
+                for r in range(first, last + 1):
+                    x, y = ws.cell(r, a[0]).value, ws.cell(r, b[0]).value
+                    if not _empty(x) and not _empty(y):
+                        from catalog import norm_title
+                        if norm_title(x) == norm_title(y):
+                            ws.cell(r, a[0]).value, n = None, n + 1
+            log.append(f"[{ws.title}] оригинальное название совпадало с русским — очищено: {n}")
 
         elif t == "film_clear_episode":
             fcol = cols_for(hmap, rule["format"])
@@ -482,12 +541,15 @@ def process_sheet(ws, tpl, ctx, log):
             raise EPGError(f"Неизвестное правило: {t}")
 
 
-_NAMES = re.compile(r"^[^\W\d_][^,.;!?]{1,60}(,\s*[^\W\d_][^,.;!?]{1,60}){1,}$")
+_NAME = re.compile(r"^[^\W\d_][^\W\d_'’.\- ]*(?:[ '’.\-]+[^\W\d_][^\W\d_'’.\- ]*){0,4}\.?$")
 
 
 def _looks_like_actors(v) -> bool:
-    """«Иван Троян,Тереза Рамба,Онджей Ветхи» — список имён через запятую, без предложений."""
-    return isinstance(v, str) and bool(_NAMES.match(v.strip())) and len(v) < 400
+    """«Иван Троян,Тереза Рамба,,Онджей Ветхи» — имена через запятую (пустые элементы допустимы), без предложений."""
+    if not isinstance(v, str) or len(v) > 400 or re.search(r"[!?;:«»\"]|\.\s", v):
+        return False
+    parts = [p.strip() for p in v.split(",") if p.strip()]
+    return len(parts) >= 2 and all(_NAME.match(p) and len(p) <= 60 for p in parts)
 
 
 def apply_layout(ws, hr, rule, ctx, log):
@@ -532,13 +594,13 @@ def apply_layout(ws, hr, rule, ctx, log):
     # сдвиг в выгрузке: актёры лежат в «описании», а «Актёры» пустые
     sd, ld, ac = ci("desc_short"), ci("desc_long"), ci("actors")
     if None not in (sd, ac):
-        filled = [v for v in out if not _empty(v[sd])]
-        if filled and all(_empty(v[ac]) for v in out) and \
-                sum(_looks_like_actors(v[sd]) for v in filled) >= 0.8 * len(filled):
-            for v in out:
-                if _looks_like_actors(v[sd]):
-                    v[ac], v[sd] = v[sd], None
-            log.append(f"[{ws.title}] актёры перенесены из «{names[sd]}» в «{names[ac]}» (сдвиг в выгрузке)")
+        moved = 0
+        for v in out:
+            if _empty(v[ac]) and _looks_like_actors(v[sd]):
+                v[ac], v[sd] = re.sub(r",\s*,+", ",", str(v[sd]).strip()).strip(", "), None
+                moved += 1
+        if moved:
+            log.append(f"[{ws.title}] актёры перенесены из «{names[sd]}» в «{names[ac]}»: {moved} (сдвиг в выгрузке)")
 
     ws.delete_rows(1, ws.max_row)
     ws.append(names)
@@ -616,7 +678,7 @@ def apply_style(ws, hr, rule):
         ws.row_dimensions[r].height = round(line_h * lines + 6, 1)
 
     ws.freeze_panes = rule.get("freeze", "A2")
-    ws.auto_filter.ref = f"A{hr}:{get_column_letter(ncol)}{ws.max_row}"
+    ws.auto_filter.ref = f"A{hr}:{get_column_letter(ncol)}{ws.max_row}" if rule.get("filter") else None
     ws.sheet_view.zoomScale = rule.get("zoom", 100)
     ws.page_setup.orientation = "landscape"
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
@@ -699,6 +761,16 @@ def process(input_path, template_path=None, out_dir="output", original_name=None
     cpath = catalog_path(catalog_dir, code) if spec else None
     if cpath:
         ctx["catalog"] = load_catalog(cpath, spec)
+    ctx["others"] = []
+    if catalog_dir:
+        for tp in list_templates():
+            for ocode, ospec in (load_template(tp).get("catalogs") or {}).items():
+                op = catalog_path(catalog_dir, str(ocode))
+                if str(ocode) != str(code) and op:
+                    try:
+                        ctx["others"].append((str(ocode), load_catalog(op, ospec)))
+                    except Exception:  # noqa: BLE001
+                        pass
 
     log = [f"Шаблон: {tpl['name']} · канал {code} · неделя {d1}.{m1}–{d2}.{m2}"]
     if spec:
@@ -710,7 +782,9 @@ def process(input_path, template_path=None, out_dir="output", original_name=None
     for ws in wb.worksheets:
         process_sheet(ws, tpl, ctx, log)
 
-    out = Path(out_dir) / tpl["output_name"].format(channel=code, d1=d1, m1=m1, d2=d2, m2=m2)
+    y2 = ctx.get("year_end") or year_from_filename(name) or year_from_data(wb, tpl) or dt.date.today().year
+    out = Path(out_dir) / tpl["output_name"].format(channel=code, name=ch_def.get("name", code),
+                                                   d1=d1, m1=m1, d2=d2, m2=m2, y2=y2)
     out.parent.mkdir(parents=True, exist_ok=True)
     if tpl.get("versioning"):
         out = versioned(out)

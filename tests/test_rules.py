@@ -49,7 +49,7 @@ def test_make_sense(tmp_path):
         ["10.11.2026", "23:59", "x", "Шоу", "", "Movie ", "16+"],
     ])
     out, _ = process(src, out_dir=tmp_path / "out")
-    assert out.name == "EPG_911_09_11_15_11_MAKE_SENSE.xlsx"
+    assert out.name == "EPG 9-1-1 09.11 - 15.11.2026 (msk time).xlsx"
     rows = read(out)
     assert rows[0] == HEAD
     pick = lambda r: (r[1], r[2], r[4], r[8], r[3], r[9])      # дата, время, название, эпизод, формат, маркер

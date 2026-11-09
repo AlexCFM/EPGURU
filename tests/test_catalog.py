@@ -180,3 +180,38 @@ def test_column_typed_catalog(tmp_path):
     assert cat.lookup("Хлоя")["type"] == "series"
     assert cat.lookup("Крик Хаоса")["type"] == "film"
     assert cat.lookup("ПРЯМОЙ ЭФИР") is None and cat.lookup("Без типа") is None
+
+
+def test_descriptions_and_original_title(tmp_path):
+    cdir = tmp_path / "cat"
+    cdir.mkdir()
+    (cdir / "VESNA.xlsx").write_bytes(book({
+        "CONTENT ": [["Series Name (EN)", "Название (RU)", "Short  EPG RU", "Long  EPG RU"],
+                     ["12 Days", "12 дней подарков", "Коротко про фильм.", "Длинно про фильм."]],
+        "СЕРИАЛЫ ": [["Название (RU)", "Season", "Episode", "Base EPG RU", "Description EPG RU"],
+                     ["Коварная любовь", 1, 1, "Серия один.", "Серия один подробно."],
+                     ["Коварная любовь", 1, 2, "Серия два.", "Серия два подробно."]]}))
+    wb = openpyxl.Workbook()
+    head = ["Channel", "Date", "Time", "Film Format", "Title Rus", "Title Eng", "Season #", "Episode #",
+            "Episode Name", "Age Restrict", "Year", "Movie Genre", "Country", "Description Short",
+            "Description Long", "Actors"]
+    for r in [head,
+              ["Romance_RUS", "2026-11-02", "10:00", "Movie", "12 дней подарков", "12 Days", "1", "1", "", "16",
+               "2017", "", "", "Эшли Джонс,Дэвид Блю,,Джей Коннолли", "", ""],
+              ["Romance_RUS", "2026-11-02", "12:00", "Movie", "Коварная любовь", "Deceiving Love", "1", "2", "", "16",
+               "2022", "", "", "", "", ""],
+              ["Romance_RUS", "2026-11-02", "14:00", "Movie", "Белое платье", "Белое платье", "1", "1", "", "12",
+               "2010", "", "", "", "", ""]]:
+        wb.active.append(r)
+    src = tmp_path / "EPG_2026-11-022026-11-09.xlsx"
+    wb.save(src)
+    out, log = process(src, out_dir=tmp_path / "out", catalog_dir=cdir)
+    assert out.name == "EPG VESNA 02.11 - 08.11.2026 (msk time).xlsx"
+    ws = openpyxl.load_workbook(out).active
+    rows = list(ws.iter_rows(min_row=2, values_only=True))
+    assert rows[0][0] == "VESNA" and rows[0][13] == "Коротко про фильм." and rows[0][14] == "Длинно про фильм."
+    assert rows[0][15] == "Эшли Джонс,Дэвид Блю,Джей Коннолли"            # актёры на месте, двойная запятая убрана
+    assert rows[0][6] is None and rows[0][7] is None                     # фильм: без сезона и серии
+    assert rows[1][3] == "сериал" and rows[1][13] == "Серия два."         # описание конкретной серии
+    assert rows[2][5] is None                                            # ориг = рус -> пусто
+    assert ws.auto_filter.ref is None

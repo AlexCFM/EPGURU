@@ -47,7 +47,7 @@ def test_process_and_download(client):
     r = client.post("/api/process", files=[("files", ("EPG PLAN B 09.11-15.11.xlsx", xlsx(MS)))])
     job = r.json()[0]
     assert job["status"] == "done", job
-    assert job["out"] == "EPG_PLAN_B_09_11_15_11_MAKE_SENSE.xlsx"
+    assert job["out"] == "EPG PLAN B 09.11 - 15.11.2026 (msk time).xlsx"
     d = client.get(f"/api/jobs/{job['id']}/download")
     assert d.status_code == 200
     ws = openpyxl.load_workbook(io.BytesIO(d.content)).active
@@ -60,7 +60,7 @@ def test_manual_channel(client):
     login(client)
     r = client.post("/api/process", data={"channel": "VESNA"},
                     files=[("files", ("расписание 09.11-15.11.xlsx", xlsx(MS)))])
-    assert r.json()[0]["out"] == "EPG_VESNA_09_11_15_11_MAKE_SENSE.xlsx"
+    assert r.json()[0]["out"] == "EPG VESNA 09.11 - 15.11.2026 (msk time).xlsx"
 
 
 def test_errors_are_recorded(client):

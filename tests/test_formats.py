@@ -160,7 +160,7 @@ def test_html_xls_channel_column_iso_dates(tmp_path):
     src = tmp_path / "EPG_2026-11-022026-11-09.xls"
     src.write_text(html, encoding="utf-8")
     out, log = process(src, out_dir=tmp_path / "out")
-    assert out.name == "EPG_911_02_11_09_11_MAKE_SENSE.xlsx"
+    assert out.name == "EPG 9-1-1 02.11 - 08.11.2026 (msk time).xlsx"
     assert any("Suspenso_RUS" in l for l in log)
     got = list(openpyxl.load_workbook(out).active.iter_rows(values_only=True))
     data = [r for r in got[1:] if any(r)]

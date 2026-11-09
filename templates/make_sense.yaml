@@ -2,21 +2,24 @@
 # Правила — данные, а не код. Новый заказчик = новый YAML-файл рядом.
 
 name: MAKE SENSE
-output_name: "EPG_{channel}_{d1}_{m1}_{d2}_{m2}_MAKE_SENSE.xlsx"
+output_name: "EPG {name} {d1}.{m1} - {d2}.{m2}.{y2} (msk time).xlsx"
 
 # Канал определяется по имени исходного файла (порядок важен)
 # display — что пишется в столбец «канал»; values — как канал записан в выгрузках (столбец Channel)
 channels:
   - match: ["PLAN B", "PLAN_B", "PLANB"]
     code: PLAN_B
+    name: "PLAN B"
     display: "PLAN B"
     values: ["PlanB", "Plan B", "PlanB_RUS", "Plan_B_RUS", "PLAN B"]
   - match: ["9-1-1", "911"]
     code: "911"
+    name: "9-1-1"
     display: 911
     values: ["Suspenso_RUS", "Suspense_RUS", "Suspenso", "Suspense", "911"]
   - match: ["VESNA"]
     code: VESNA
+    name: "VESNA"
     display: "VESNA"
     values: ["Romance_RUS", "Romanse_RUS", "Romance", "Романс", "VESNA"]
 
@@ -73,6 +76,17 @@ rules:
   - type: clean_episode_name         # «1 серия», «Эпизод 3», «Серия №2» -> пусто; «Эпизод 3. Татьяна» не трогаем
     columns: ["Название эпизода", "Episode Name"]
 
+  - type: fill_descriptions          # пустые описания — из каталогов (свой канал, затем остальные)
+    title: ["название (рус)"]
+    season: ["сезон"]
+    episode: ["номер серии"]
+    desc_short: ["описание (короткое)"]
+    desc_long: ["описание (полное)"]
+
+  - type: clear_same_original        # «название (ориг)» = «название (рус)» -> ориг пустое
+    target: ["название (ориг)"]
+    compare_with: ["название (рус)"]
+
   - type: film_clear_episode         # у фильма нет сезона, серии и названия серии
     format: ["формат"]
     film_value: "х/ф"
@@ -94,18 +108,18 @@ rules:
     bold: ["название (рус)"]
     center: ["канал", "дата", "время", "формат", "сезон", "номер серии", "маркер", "год"]
     widths:
-      "канал": 8
-      "дата": 11
-      "время": 7
-      "формат": 8
-      "название (рус)": 28
+      "канал": 12.5
+      "дата": 14
+      "время": 11.7
+      "формат": 10.7
+      "название (рус)": 34.7
       "название (ориг)": 24
-      "сезон": 7
-      "номер серии": 8
+      "сезон": 8.9
+      "номер серии": 11.7
       "название эпизода": 26
       "маркер": 8
       "год": 6
-      "жанр": 18
+      "жанр": 21.1
       "страна": 14
       "описание (короткое)": 60
       "описание (полное)": 100
@@ -126,11 +140,16 @@ catalogs:
   VESNA:
     label: "VESNA INVENTORY"
     sheets:
-      - {name: "CONTENT",     type: film,   title: "Название (RU)"}
-      - {name: "РОЖДЕСТВО",   type: film,   title: "Название (RU)", optional: true}
-      - {name: "СЕРИАЛЫ",     type: series, title: "Название (RU)"}
-      - {name: "СЕРИАЛЫ РУС", type: series, title: "Название (RU)", optional: true}
+      - {name: "CONTENT",     type: film,   title: "Название (RU)",
+         desc_short: "Short EPG RU", desc_long: "Long EPG RU"}
+      - {name: "РОЖДЕСТВО",   type: film,   title: "Название (RU)", optional: true,
+         desc_short: "Short EPG RU", desc_long: "Long EPG RU"}
+      - {name: "СЕРИАЛЫ",     type: series, title: "Название (RU)",
+         season: "Season", episode: "Episode", desc_short: "Base EPG RU", desc_long: "Description EPG RU"}
+      - {name: "СЕРИАЛЫ РУС", type: series, title: "Название (RU)", optional: true,
+         season: "Season", episode: "Episode", desc_short: "Short EPG RU", desc_long: "Long EPG RU"}
       - {name: "РУССКОЕ",     type: auto,   title: "Название (RU)", optional: true,
+         episode: "Episode", desc_short: "Short EPG RU", desc_long: "Long EPG RU",
          duration: "Duration", film_max_episodes: 4, film_max_minutes: 55, long_from_episodes: 3}
   PLAN_B:
     label: "PLAN B · ФИЛЬМЫ / СЕРИАЛЫ / MAURIS"
@@ -140,3 +159,5 @@ catalogs:
       - {name: "MAURIS",    type: column, title: "Название (RU)", type_column: "Тип", optional: true, default: film}
       - {name: "НЕ РЕШЕНО", type: column, title: "Название (RU)", type_column: "Тип", optional: true}
       - {name: "КАТАЛОГ",   type: column, title: "Название (RU)", type_column: "Тип", optional: true}
+      - {name: "ОПИСАНИЯ",  type: descriptions, title: "Название (RU)", optional: true,
+         season: "Сезон", episode: "Серия", desc_short: "Описание (короткое)", desc_long: "Описание (полное)"}
