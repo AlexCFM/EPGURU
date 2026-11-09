@@ -228,12 +228,27 @@ class _Tables(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.tables, self._row, self._cell, self._span = [], None, None, 1
 
+    def _close_cell(self):
+        if self._cell is not None and self._row is not None:
+            txt = re.sub(r"[ \t\r\f\v]+", " ", "".join(self._cell)).strip()
+            self._row.append(txt or None)
+            self._row.extend([None] * (self._span - 1))
+        self._cell = None
+
+    def _close_row(self):
+        self._close_cell()
+        if self._row is not None and self.tables:
+            self.tables[-1].append(self._row)
+        self._row = None
+
     def handle_starttag(self, tag, attrs):
         if tag == "table":
             self.tables.append([])
         elif tag == "tr" and self.tables:
+            self._close_row()                      # незакрытая предыдущая строка
             self._row = []
         elif tag in ("td", "th") and self._row is not None:
+            self._close_cell()                     # <td>текст<td> — незакрытая ячейка, как в браузере
             self._cell = []
             try:
                 self._span = max(1, int(dict(attrs).get("colspan") or 1))
@@ -243,14 +258,12 @@ class _Tables(HTMLParser):
             self._cell.append("\n")
 
     def handle_endtag(self, tag):
-        if tag in ("td", "th") and self._cell is not None:
-            txt = re.sub(r"[ \t\r\f\v]+", " ", "".join(self._cell)).strip()
-            self._row.append(txt or None)
-            self._row.extend([None] * (self._span - 1))
-            self._cell = None
-        elif tag == "tr" and self._row is not None:
-            self.tables[-1].append(self._row)
-            self._row = None
+        if tag in ("td", "th"):
+            self._close_cell()                     # лишний </td> без открытой ячейки — игнорируется
+        elif tag == "tr":
+            self._close_row()
+        elif tag == "table":
+            self._close_row()
 
     def handle_data(self, d):
         if self._cell is not None:

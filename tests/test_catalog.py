@@ -182,15 +182,7 @@ def test_column_typed_catalog(tmp_path):
     assert cat.lookup("ПРЯМОЙ ЭФИР") is None and cat.lookup("Без типа") is None
 
 
-def test_descriptions_and_original_title(tmp_path):
-    cdir = tmp_path / "cat"
-    cdir.mkdir()
-    (cdir / "VESNA.xlsx").write_bytes(book({
-        "CONTENT ": [["Series Name (EN)", "Название (RU)", "Short  EPG RU", "Long  EPG RU"],
-                     ["12 Days", "12 дней подарков", "Коротко про фильм.", "Длинно про фильм."]],
-        "СЕРИАЛЫ ": [["Название (RU)", "Season", "Episode", "Base EPG RU", "Description EPG RU"],
-                     ["Коварная любовь", 1, 1, "Серия один.", "Серия один подробно."],
-                     ["Коварная любовь", 1, 2, "Серия два.", "Серия два подробно."]]}))
+def test_original_title_and_actors(tmp_path):
     wb = openpyxl.Workbook()
     head = ["Channel", "Date", "Time", "Film Format", "Title Rus", "Title Eng", "Season #", "Episode #",
             "Episode Name", "Age Restrict", "Year", "Movie Genre", "Country", "Description Short",
@@ -198,20 +190,43 @@ def test_descriptions_and_original_title(tmp_path):
     for r in [head,
               ["Romance_RUS", "2026-11-02", "10:00", "Movie", "12 дней подарков", "12 Days", "1", "1", "", "16",
                "2017", "", "", "Эшли Джонс,Дэвид Блю,,Джей Коннолли", "", ""],
-              ["Romance_RUS", "2026-11-02", "12:00", "Movie", "Коварная любовь", "Deceiving Love", "1", "2", "", "16",
-               "2022", "", "", "", "", ""],
               ["Romance_RUS", "2026-11-02", "14:00", "Movie", "Белое платье", "Белое платье", "1", "1", "", "12",
-               "2010", "", "", "", "", ""]]:
+               "2010", "", "", "Коротко.", "Длинно.", "Актёр Один,Актёр Два"]]:
         wb.active.append(r)
     src = tmp_path / "EPG_2026-11-022026-11-09.xlsx"
     wb.save(src)
-    out, log = process(src, out_dir=tmp_path / "out", catalog_dir=cdir)
+    out, log = process(src, out_dir=tmp_path / "out")
     assert out.name == "EPG VESNA 02.11 - 08.11.2026 (msk time).xlsx"
     ws = openpyxl.load_workbook(out).active
     rows = list(ws.iter_rows(min_row=2, values_only=True))
-    assert rows[0][0] == "VESNA" and rows[0][13] == "Коротко про фильм." and rows[0][14] == "Длинно про фильм."
-    assert rows[0][15] == "Эшли Джонс,Дэвид Блю,Джей Коннолли"            # актёры на месте, двойная запятая убрана
+    assert rows[0][0] == "VESNA" and rows[0][15] == "Эшли Джонс,Дэвид Блю,Джей Коннолли" and rows[0][13] is None
     assert rows[0][6] is None and rows[0][7] is None                     # фильм: без сезона и серии
-    assert rows[1][3] == "сериал" and rows[1][13] == "Серия два."         # описание конкретной серии
-    assert rows[2][5] is None                                            # ориг = рус -> пусто
+    assert rows[1][5] is None and rows[1][13] == "Коротко." and rows[1][14] == "Длинно."
     assert ws.auto_filter.ref is None
+
+
+def test_html_unclosed_td(tmp_path):
+    """Выгрузка с незакрытыми <td> в описаниях: <td>кор<td>полн<td>актёры</td></td>."""
+    html = ("<html><body><table><tr><td>Channel</td><td>Date</td><td>Time</td><td>Title Rus</td>"
+            "<td>Description Short</td><td>Description Long</td><td>Actors</td></tr>"
+            "<tr><td>PlanB</td><td>2026-11-09</td><td>07:05:17</td><td>Фильм</td>"
+            "<td>Коротко про фильм<td>Длинно про фильм<td>Иван Петров,Анна Сидорова</td></td></tr></table></body></html>")
+    p = tmp_path / "x.xls"
+    p.write_text(html, encoding="utf-8")
+    from readers import load_any
+    wb, kind = load_any(p)
+    assert kind == "html"
+    assert list(wb.active.iter_rows(values_only=True))[1] == (
+        "PlanB", "2026-11-09", "07:05:17", "Фильм", "Коротко про фильм", "Длинно про фильм", "Иван Петров,Анна Сидорова")
+def test_episode_name_with_series_title(tmp_path):
+    wb = openpyxl.Workbook()
+    for r in [EPG_HEAD,
+              [dt.datetime(2026, 11, 9), dt.time(10, 0), "Голова медузы", "Голова медузы. 1 серия", "Series", "18"],
+              [dt.datetime(2026, 11, 9), dt.time(10, 30), "Сило", "Сило. Вторая серия", "Series", "18"],
+              [dt.datetime(2026, 11, 9), dt.time(11, 0), "Голова медузы", "Голова медузы. Начало", "Series", "18"]]:
+        wb.active.append(r)
+    src = tmp_path / "EPG 9-1-1 09.11-15.11.xlsx"
+    wb.save(src)
+    out, _ = process(src, out_dir=tmp_path / "out")
+    rows = list(openpyxl.load_workbook(out).active.iter_rows(min_row=2, values_only=True))
+    assert rows[0][8] is None and rows[1][8] is None and rows[2][8] == "Голова медузы. Начало"

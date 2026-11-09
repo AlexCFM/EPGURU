@@ -456,10 +456,20 @@ def process_sheet(ws, tpl, ctx, log):
 
         elif t == "clean_episode_name":
             n = 0
+            tcols = cols_for(hmap, rule.get("title", []))
             for col in cols_for(hmap, rule["columns"]):
                 for r in range(first, last + 1):
                     c = ws.cell(r, col)
-                    if is_bare_episode(c.value):
+                    v = c.value
+                    # «Голова медузы. 1 серия» — название сериала + номер: убираем название и проверяем остаток
+                    if tcols and isinstance(v, str):
+                        title = ws.cell(r, tcols[0]).value
+                        if not _empty(title):
+                            from catalog import norm_title
+                            nt, nv = norm_title(title), norm_title(v)
+                            if nv.startswith(nt + " "):
+                                v = nv[len(nt):]
+                    if is_bare_episode(v):
                         c.value, n = None, n + 1
             log.append(f"[{ws.title}] очищено «пустых» названий серий: {n}")
 

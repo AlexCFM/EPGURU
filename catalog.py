@@ -241,8 +241,12 @@ def catalog_path(catalog_dir, code) -> Path | None:
 
 # ---------- чистка названий серий ----------
 
+_ORD = (r"перв|втор|трет|четверт|пят|шест|седьм|восьм|девят|десят|одиннадцат|двенадцат|тринадцат|"
+        r"четырнадцат|пятнадцат|шестнадцат|семнадцат|восемнадцат|девятнадцат|двадцат|последн|заключительн|финальн")
+_ORD_WORD = rf"(?:{_ORD})(?:ая|ый|ой|ий|ья|ье|ое|ей)"
 _JUNK = re.compile(
-    r"\b(?:серия|серии|эпизод|эпизода|episode|ep|season|сезон|часть|part|s\d+e\d+|\d+(?:-?(?:я|й|ая|ый|ой))?)\b|№",
+    rf"\b(?:серия|серии|эпизод|эпизода|episode|ep|season|сезон|часть|part|s\d+e\d+|{_ORD_WORD}|"
+    r"\d+(?:-?(?:я|й|ая|ый|ой))?)\b|№",
     re.IGNORECASE)
 
 
@@ -252,7 +256,7 @@ def is_bare_episode(value) -> bool:
     if value is None:
         return False
     s = str(value).strip()
-    if not s or not re.search(r"\d", s):
+    if not s or not (re.search(r"\d", s) or re.search(rf"(?i)\b{_ORD_WORD}\b", s)):
         return False
     if not re.search(r"(?i)серия|серии|эпизод|episode|\bep\b|часть|part|s\d+e\d+", s):
         return False
