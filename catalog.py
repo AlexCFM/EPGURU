@@ -87,7 +87,18 @@ def load_catalog(path, spec: dict) -> Catalog:
             continue
         tcol = next(header.index(t.strip().lower()) for t in titles if t.strip().lower() in header)
         data = [r for r in rows[hi + 1:] if tcol < len(r) and r[tcol] not in (None, "")]
-        if sh["type"] == "auto":
+        if sh["type"] == "column":   # тип записан в самом каталоге: «фильм» / «сериал»
+            tc = sh["type_column"].strip().lower()
+            if tc not in header:
+                missing.append(f"{sh['name']} (нет столбца {sh['type_column']})")
+                continue
+            ti = header.index(tc)
+            values = {norm_title(k): v for k, v in sh.get("values", {"фильм": "film", "сериал": "series"}).items()}
+            for r in data:
+                typ = values.get(norm_title(r[ti] if ti < len(r) else None))
+                if typ:
+                    cat.add(r[tcol], typ)
+        elif sh["type"] == "auto":
             dcol = None
             if sh.get("duration") and sh["duration"].strip().lower() in header:
                 dcol = header.index(sh["duration"].strip().lower())

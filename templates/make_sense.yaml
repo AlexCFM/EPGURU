@@ -53,6 +53,7 @@ rules:
 
 # Каталоги каналов: какие листы файла каталога — фильмы, какие — сериалы.
 # type: film | series | keep (формат не трогать) |
+#       column — тип указан в столбце type_column («фильм» / «сериал»; другие значения пропускаются) |
 #       auto — по числу серий и хронометражу: сериал, если серий больше film_max_episodes,
 #              или серий не меньше long_from_episodes и серия длиннее film_max_minutes; иначе фильм
 catalogs:
@@ -71,3 +72,8 @@ catalogs:
       - {name: "СЕРИАЛЫ РУС", type: series, title: "Название (RU)", optional: true}
       - {name: "РУССКОЕ",     type: auto,   title: "Название (RU)", optional: true,
          duration: "Duration", film_max_episodes: 4, film_max_minutes: 55, long_from_episodes: 3}
+  PLAN_B:
+    label: "PLAN B (столбец «Тип»)"
+    sheets:
+      - {name: "КАТАЛОГ", type: column, title: "Название (RU)", type_column: "Тип",
+         values: {"фильм": film, "сериал": series}}
