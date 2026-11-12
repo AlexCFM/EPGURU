@@ -56,6 +56,8 @@ rules:
     strip: true
     mapping:
       "МИСС ВСЕЛЕННАЯ": "ЗАГЛУШКА"
+    patterns:                       # с годом и опечатками: «МИСС ВСЛЕНЕННАЯ 2025»
+      "^МИСС\\s+ВС\\w*Л\\w*Н\\w*Я\\b": "ЗАГЛУШКА"
 
   # 4. Возраст: ровно один «+» в конце у каждого непустого значения
   - type: append_suffix
@@ -63,6 +65,12 @@ rules:
     suffix: "+"
 
   # 5. Оформление как в образце: Cambria 9, всё по центру, тонкие границы, шапка без заливки
+  # только проверка: все ли позиции EPG есть в каталоге КОНТЕНТ (EPG не меняется)
+  - type: catalog_presence
+    title: ["Название (ориг)", "Название"]
+    episode: "Номер эпизода"
+    label: "Название"
+
   - type: style
     font: Cambria
     size: 9
@@ -91,8 +99,6 @@ rules:
 # Каталог FIGHT CLUB: листы ФИЛЬМЫ / СЕРИАЛЫ (или один лист КАТАЛОГ со столбцом «Тип»)
 catalogs:
   FIGHT_CLUB:
-    label: "FIGHT CLUB · ФИЛЬМЫ / СЕРИАЛЫ"
+    label: "FIGHT CLUB · КОНТЕНТ (файл сетки)"
     sheets:
-      - {name: "ФИЛЬМЫ",  type: column, title: ["Название (RU)", "Название", "EPG_TITLE_RUS"], type_column: "Тип", optional: true, default: film}
-      - {name: "СЕРИАЛЫ", type: column, title: ["Название (RU)", "Название", "EPG_TITLE_RUS"], type_column: "Тип", optional: true, default: series}
-      - {name: "КАТАЛОГ", type: column, title: ["Название (RU)", "Название", "EPG_TITLE_RUS"], type_column: "Тип", optional: true}
+      - {name: "КОНТЕНТ", type: blocks}

@@ -276,3 +276,19 @@ def test_episode_equal_title_only_for_films(tmp_path):
     got = list(openpyxl.load_workbook(out).active.iter_rows(min_row=2, values_only=True))
     assert (got[0][3], got[0][8]) == ("сериал", "Сило")
     assert (got[1][3], got[1][8]) == ("х/ф", None)
+
+
+def test_blocks_catalog_and_parse_event(tmp_path):
+    import openpyxl
+    from catalog import load_catalog, parse_event, event_key
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = "КОНТЕНТ"
+    ws.append(["EFC", None, None, None, "ENFUSION", None, None, None, "KSW "])
+    ws.append(["Номер", "Хроно", "Дата премьеры", "Факт. эфир"] * 3)
+    ws.append(["EFC 137\xa0", None, None, None, 163, None, None, None, "KSW77"])
+    ws.append(["IBC. Биться чтобы жить"])
+    p = tmp_path / "FC.xlsx"; wb.save(p)
+    cat = load_catalog(p, {"sheets": [{"name": "КОНТЕНТ", "type": "blocks"}]})
+    for text in ["Лига EFC 137 (Южная Африка)", "Enfusion #163", "KSW 77: A VS B"]:
+        assert cat.lookup(event_key(*parse_event(text, cat.leagues))), text
+    assert parse_event("Лига EFC. Лучшие моменты", cat.leagues) is None
+    assert parse_event("Enfusion / 8TKO 25", ["ENFUSION", "8TKO"]) == ("8TKO", 25)

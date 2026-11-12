@@ -145,6 +145,9 @@ def load_catalog(path, spec: dict) -> Catalog:
                 missing.append(sh["name"])
             continue
         rows = list(ws.iter_rows(values_only=True))
+        if sh["type"] == "blocks":   # КОНТЕНТ: в 1-й строке лиги блоками, под ними столбец «Номер»
+            load_blocks(cat, rows, sh)
+            continue
         titles = sh["title"] if isinstance(sh["title"], list) else [sh["title"]]
         hi, header = _find_header(rows, titles)
         if hi is None:
@@ -196,6 +199,36 @@ def load_catalog(path, spec: dict) -> Catalog:
     if not cat.items and not cat.desc:
         raise ValueError("Каталог пустой")
     return cat
+
+
+def event_key(league, number) -> str:
+    return f"{str(league).strip().upper()} {int(number)}"
+
+
+def parse_event(text, leagues):
+    """«Лига EFC 135 (Южная Африка)», «KSW77», «Enfusion #163» → ("EFC", 135); номер обязателен."""
+    if text in (None, ""):
+        return None
+    alt = "|".join(re.escape(l) for l in sorted(leagues, key=len, reverse=True))
+    m = re.search(rf"(?<![A-Za-z0-9])({alt})\s*[#№]?\s*(\d+)(?!\d)", str(text).replace("\xa0", " "), re.I)
+    return (m.group(1).upper(), int(m.group(2))) if m else None
+
+
+def load_blocks(cat, rows, sh):
+    hdr_row = sh.get("header_row", 0)
+    leagues = [(i, str(h).strip().upper()) for i, h in enumerate(rows[hdr_row]) if h not in (None, "") and str(h).strip()]
+    cat.leagues = sorted({l for _, l in leagues} | set(getattr(cat, "leagues", [])))
+    for col, league in leagues:
+        for r in rows[hdr_row + 2:]:
+            v = r[col] if col < len(r) else None
+            if v in (None, ""):
+                continue
+            if isinstance(v, (int, float)) or re.fullmatch(r"\s*\d+(\.0+)?\s*", str(v)):
+                key = event_key(league, float(v))
+            else:
+                ev = parse_event(v, [league])
+                key = event_key(*ev) if ev else str(v).strip()
+            cat.add(key, sh.get("default", "event"))
 
 
 def duration_minutes(v):

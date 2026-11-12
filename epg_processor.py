@@ -384,14 +384,17 @@ def process_sheet(ws, tpl, ctx, log):
 
         elif t == "replace_exact":
             n, strip = 0, rule.get("strip", False)
+            pats = [(re.compile(k, re.I), v) for k, v in (rule.get("patterns") or {}).items()]
             for col in cols_for(hmap, rule["columns"]):
                 for r in range(first, last + 1):
                     c = ws.cell(r, col)
                     if not isinstance(c.value, str):
                         continue
                     key = c.value.strip() if strip else c.value
-                    if key in rule["mapping"]:
+                    if key in rule.get("mapping", {}):
                         c.value, n = rule["mapping"][key], n + 1
+                    elif (hit := next((v for rx, v in pats if rx.search(key)), None)) is not None:
+                        c.value, n = hit, n + 1
             log.append(f"[{ws.title}] замен: {n}")
 
         elif t == "age_rating":
@@ -506,6 +509,46 @@ def process_sheet(ws, tpl, ctx, log):
                     c.value = a.strftime("%H:%M") if isinstance(c.value, str) else a
                     fixed.append(f"{day} {tm:%H:%M}→{a:%H:%M}")
             log.append(f"[{ws.title}] прайм-тайм выровнен: {len(fixed)}" + (f" ({', '.join(fixed)})" if fixed else ""))
+
+        elif t == "catalog_presence":
+            # только сверка: EPG не меняется, в лог — что есть в каталоге и чего нет
+            from catalog import parse_event, event_key
+            cat = ctx.get("catalog")
+            tcols = [c for name in rule["title"] for c in cols_for(hmap, name)]
+            ecol = cols_for(hmap, rule.get("episode")) if rule.get("episode") else []
+            if not cat or not tcols:
+                log.append(f"[{ws.title}] сверка с каталогом: каталог не загружен — пропущено")
+                continue
+            leagues = getattr(cat, "leagues", None) or rule.get("leagues", [])
+            found, missing, other, mismatch = set(), {}, {}, set()
+            for r in range(first, last + 1):
+                vals = [ws.cell(r, c).value for c in tcols]
+                if all(_empty(v) for v in vals):
+                    continue
+                lv = [ws.cell(r, c).value for c in cols_for(hmap, rule.get("label", ""))] if rule.get("label") else []
+                label = next(str(v).strip() for v in lv + vals if not _empty(v))
+                ev = next((e for v in vals if (e := parse_event(v, leagues))), None)
+                if ev:
+                    key = event_key(*ev)
+                    ep = _num_cell(ws.cell(r, ecol[0]).value) if ecol else None
+                    if ep is not None and ep != ev[1]:
+                        mismatch.add(f"«{label}»: в названии {ev[1]}, номер эпизода {ep}")
+                    if cat.lookup(key):
+                        found.add(key)
+                    else:
+                        missing.setdefault(key, label)
+                elif any(cat.lookup(v) for v in vals if not _empty(v)):
+                    found.add(label)
+                else:
+                    other[label] = other.get(label, 0) + 1
+            log.append(f"[{ws.title}] сверка с каталогом: найдено {len(found)}, "
+                       f"нет в каталоге {len(missing)}, не турниры {len(other)}")
+            for key, label in sorted(missing.items()):
+                log.append(f"   НЕТ В КАТАЛОГЕ: {key} — «{label}»")
+            for m in sorted(mismatch):
+                log.append(f"   проверь номер: {m}")
+            if other:
+                log.append("   не номерные (нет в КОНТЕНТ): " + "; ".join(f"«{k}» ×{v}" for k, v in sorted(other.items())))
 
         elif t == "fill_descriptions":
             cats = ([ctx["catalog"]] if ctx.get("catalog") else []) + [c for _, c in ctx.get("others", [])]
@@ -786,6 +829,13 @@ def template_for_channel(code: str) -> Path:
         if any(ch["code"] == code for ch in load_template(p)["channels"]):
             return p
     raise EPGError(f"Нет шаблона для канала {code}")
+
+
+def _num_cell(v):
+    try:
+        return int(float(str(v).strip()))
+    except (TypeError, ValueError):
+        return None
 
 
 def process(input_path, template_path=None, out_dir="output", original_name=None, year=None, channel=None,
