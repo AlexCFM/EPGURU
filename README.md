@@ -8,7 +8,7 @@
 | Шаблон | Каналы | Файл |
 |---|---|---|
 | MAKE SENSE | PLAN B, 9-1-1, VESNA | `templates/make_sense.yaml` |
-| FIGHT CLUB | FIGHT CLUB | `templates/fight_club.yaml` |
+| FIGHT CLUB | FIGHT CLUB | `templates/fight_club.yaml` — шапка и оформление по образцу «FIGHT CLUB EPG  09_11 - 15_11.xlsx» (15 столбцов, Cambria 9, по центру), время не округляется, подряд идущие куски одного боя схлопываются |
 
 Исходные текстовые правила лежат в `docs/`.
 

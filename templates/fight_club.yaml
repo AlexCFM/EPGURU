@@ -1,17 +1,40 @@
 # Шаблон обработки EPG: FIGHT CLUB
 
 name: FIGHT CLUB
-output_name: "EPG_{channel}_{d1}_{m1}_{d2}_{m2}_processed.xlsx"
-versioning: true          # при повторной обработке: _v2, _v3...
+# как в образце: «FIGHT CLUB EPG  09_11 - 15_11.xlsx»
+output_name: "FIGHT CLUB EPG  {d1}_{m1} - {d2}_{m2}.xlsx"
 
 channels:
   - match: ["FIGHT CLUB", "FIGHT_CLUB", "FIGHT-CLUB", "FIGHTCLUB"]
     code: FIGHT_CLUB
+    name: "FIGHT CLUB"
+    display: "FIGHT CLUB"
 
-header_anchors: ["Date", "Дата", "Start Time", "Время", "EPG_TITLE_RUS", "Название"]
+header_anchors: ["Date", "Дата", "Start Time", "Время", "EPG_TITLE_RUS", "Название", "TITLE_EN", "AGE RATING"]
 header_search_rows: 15
 
 rules:
+  # 0. Шапка и порядок столбцов как в образце «FIGHT CLUB EPG  09_11 - 15_11.xlsx». Время НЕ округляется.
+  - type: layout
+    sheet_title: "FIGHT-CLUB"
+    keep_empty_rows: true            # пустые строки не удаляем — они граница блока дублей
+    columns:
+      - {name: "Канал ",                  role: channel, from: ["Channel", "Канал"]}
+      - {name: "Дата",                    from: ["Date"]}
+      - {name: "Время",                   time: true, from: ["Start Time", "Time"]}
+      - {name: "Название",                from: ["EPG_TITLE_RUS", "Title Rus"]}
+      - {name: "название эпизода",        from: ["Episode Name", "EPISODE_NAME"]}
+      - {name: "Название эпизода (доп)",  from: ["EPISODE_NAME_2"]}
+      - {name: "Номер сезона",            int: true, from: ["SEASON No.", "Season", "Season #"]}
+      - {name: "Номер эпизода",           int: true, from: ["EPISODE No.", "Episode", "Episode #"]}
+      - {name: "Название (ориг)",         from: ["TITLE_EN", "Title Eng"]}
+      - {name: "Возраст",                 from: ["AGE RATING", "Age Restrict"]}
+      - {name: "Жанр 1",                  from: ["GENRE 1"]}
+      - {name: "Жанр 2",                  from: ["GENRE 2"]}
+      - {name: "Год",                     int: true, from: ["PROD_YEAR", "Year"]}
+      - {name: "Короткое описание",       from: ["SHORT_DESCRIPTION", "Description Short"]}
+      - {name: "Длинное описание",        from: ["LONG_DESCRIPTION", "Description Long"]}
+
   # 1. Дата берётся из самого файла (там уже правильное число), только формат DD/MM/YYYY.
   #    Пересчёт дат от имени файла (rebuild_dates) отключён; вернуть можно этим правилом:
   #    - type: rebuild_dates
@@ -19,33 +42,51 @@ rules:
   #      time_columns: ["Start Time", "Время"]
   #      previous_day_from: "22:00"
   - type: date_format
-    columns: ["Date", "Дата"]
+    columns: ["Дата"]
     format: "DD/MM/YYYY"
 
   # 2. Только подряд идущие дубли; дата и время в сравнении не участвуют,
   #    пустая строка — граница блока
   - type: dedupe_consecutive
-    ignore_columns: ["Date", "Дата", "Start Time", "Время"]
+    ignore_columns: ["Дата", "Время"]
 
   # 3. Замена названия
   - type: replace_exact
-    columns: ["EPG_TITLE_RUS", "Название"]
+    columns: ["Название"]
     strip: true
     mapping:
       "МИСС ВСЕЛЕННАЯ": "ЗАГЛУШКА"
 
-  # 4. Каталог (если загружен и в EPG есть столбец формата): фильм -> х/ф, сериал -> сериал
-  - type: catalog_format
-    title: ["EPG_TITLE_RUS", "Название", "Title Rus"]
-    format: ["Format", "Формат", "Film Format", "Тип"]
-    mapping:
-      film: "х/ф"
-      series: "сериал"
-
-  # 5. Возраст: ровно один «+» в конце у каждого непустого значения
+  # 4. Возраст: ровно один «+» в конце у каждого непустого значения
   - type: append_suffix
-    columns: ["AGE RATING", "Возраст"]
+    columns: ["Возраст"]
     suffix: "+"
+
+  # 5. Оформление как в образце: Cambria 9, всё по центру, тонкие границы, шапка без заливки
+  - type: style
+    font: Cambria
+    size: 9
+    align: center
+    header_fill: null
+    header_bold: false
+    header_font_color: "000000"
+    time_format: "h:mm"
+    widths:
+      "Канал": 12.3
+      "Дата": 15
+      "Время": 19.3
+      "Название": 55.3
+      "название эпизода": 64.6
+      "Название эпизода (доп)": 50.3
+      "Номер сезона": 14.4
+      "Номер эпизода": 24.4
+      "Название (ориг)": 40.1
+      "Возраст": 17
+      "Жанр 1": 23.9
+      "Жанр 2": 29.6
+      "Год": 15.4
+      "Короткое описание": 69.3
+      "Длинное описание": 111.9
 
 # Каталог FIGHT CLUB: листы ФИЛЬМЫ / СЕРИАЛЫ (или один лист КАТАЛОГ со столбцом «Тип»)
 catalogs:

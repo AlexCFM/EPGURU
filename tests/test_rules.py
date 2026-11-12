@@ -77,17 +77,41 @@ def test_fight_club(tmp_path):
         [D(2026, 11, 9), "04:00", " МИСС ВСЕЛЕННАЯ ", None, "n"],
     ])
     out, _ = process(src, out_dir=tmp_path / "out")
-    assert out.name == "EPG_FIGHT_CLUB_09_11_15_11_processed.xlsx"
+    assert out.name == "FIGHT CLUB EPG  09_11 - 15_11.xlsx"
+    wb = openpyxl.load_workbook(out)
+    assert wb.sheetnames == ["FIGHT-CLUB"]
     rows = read(out)
+    assert rows[0][:4] == ("Канал ", "Дата", "Время", "Название") and len(rows[0]) == 15
     assert len(rows) == 8
-    assert [r[0] for r in rows[1:]] == [D(2026, 11, 8), "09/11/2026", D(2026, 11, 9), D(2026, 11, 9),
+    assert [r[1] for r in rows[1:]] == [D(2026, 11, 8), "09/11/2026", D(2026, 11, 9), D(2026, 11, 9),
                                         None, D(2026, 11, 9), D(2026, 11, 9)]
-    assert [r[2] for r in rows[1:]] == ["Хвост", "Программа А", "Программа Б", "Программа А", None,
+    assert [r[3] for r in rows[1:]] == ["Хвост", "Программа А", "Программа Б", "Программа А", None,
                                         "Программа А", "ЗАГЛУШКА"]
-    assert [r[3] for r in rows[1:]] == ["16+", "16+", "18+", "16+", None, "16+", None]
+    assert [r[9] for r in rows[1:]] == ["16+", "16+", "18+", "16+", None, "16+", None]
+    assert rows[1][0] == "FIGHT CLUB" and rows[5][0] is None            # пустая строка осталась пустой
+    assert rows[1][2] == dt.time(23, 10)                                  # время не округляется, тип «время»
 
-    out2, _ = process(src, out_dir=tmp_path / "out")
-    assert out2.name == "EPG_FIGHT_CLUB_09_11_15_11_processed_v2.xlsx"
+
+def test_fight_club_csv_export(tmp_path):
+    """CSV-выгрузка FIGHT-CLUB_20261116-20261122.csv: даты MM/DD/YYYY, куски одного боя схлопываются."""
+    head = ["Date", "Start Time", "EPG_TITLE_RUS", "Episode Name", "EPISODE_NAME_2", "SEASON No.", "EPISODE No.",
+            "TITLE_EN", "AGE RATING", "GENRE 1", "GENRE 2", "PROD_YEAR", "SHORT_DESCRIPTION", "LONG_DESCRIPTION"]
+    fight = ["Лига EFC 135", "БОЙ ГОДА", "УОЛКЕР VS ДЖЕЙКОБС", "", "135", "EFC 135", "18", "Спорт", "Единоборства",
+             "2026", "Коротко", "Длинно"]
+    lines = [head, ["11/15/2026", "23:33"] + fight, ["11/16/2026", "00:04"] + fight, ["11/16/2026", "00:21"] + fight,
+             ["11/16/2026", "01:58", "Лига EFC 132", "БОЙ", "А VS Б", "1", "132", "EFC 132", "18", "Спорт", "MMA",
+              "2025", "К", "Д"]]
+    import csv as _csv, io as _io
+    buf = _io.StringIO()
+    _csv.writer(buf).writerows(lines)
+    src = tmp_path / "FIGHT-CLUB_20261116-20261122.csv"
+    src.write_text("\ufeff" + buf.getvalue(), encoding="utf-8")
+    out, log = process(src, out_dir=tmp_path / "out")
+    assert out.name == "FIGHT CLUB EPG  16_11 - 22_11.xlsx"
+    rows = read(out)[1:]
+    assert [(r[1], r[2], r[3], r[6], r[7], r[9], r[12]) for r in rows] == [
+        ("15/11/2026", dt.time(23, 33), "Лига EFC 135", None, 135, "18+", 2026),
+        ("16/11/2026", dt.time(1, 58), "Лига EFC 132", 1, 132, "18+", 2025)]
 
 
 def test_dates_any_input_format(tmp_path):

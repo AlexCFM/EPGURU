@@ -618,7 +618,10 @@ def apply_layout(ws, hr, rule, ctx, log):
     for r in rows:
         vals = [r[i] if i is not None and i < len(r) else None for i in picks]
         if all(_empty(v) for v in vals):
-            empty += 1
+            if rule.get("keep_empty_rows"):
+                out.append(vals)
+            else:
+                empty += 1
             continue
         out.append(vals)
     names = [c["name"] for c in target]
@@ -630,7 +633,15 @@ def apply_layout(ws, hr, rule, ctx, log):
     ch = ci("channel")
     if ch is not None and ctx.get("channel_display") is not None:
         for v in out:
-            v[ch] = ctx["channel_display"]
+            if any(not _empty(x) for j, x in enumerate(v) if j != ch):   # пустую строку не заполняем
+                v[ch] = ctx["channel_display"]
+    # время как значение времени Excel (как в образце FC), без округления
+    for i, c in enumerate(target):
+        if c.get("time"):
+            for v in out:
+                tm = parse_time(v[i])
+                if tm is not None:
+                    v[i] = tm
     # числа: сезон, серия, год
     for i, c in enumerate(target):
         if c.get("int"):
@@ -677,8 +688,10 @@ def apply_style(ws, hr, rule):
     thin = Side(style="thin", color=rule.get("border_color", "BFBFBF"))
     day_side = Side(style="medium", color=rule.get("day_border_color", "7F7F7F"))
     fills = [PatternFill("solid", fgColor=c) for c in rule.get("day_fills", ["FFFFFF", "F3F6F9"])]
-    head_fill = PatternFill("solid", fgColor=rule.get("header_fill", "3B3835"))
-    head_font = Font(name=font, size=size, bold=True, color=rule.get("header_font_color", "FFFFFF"))
+    hf = rule.get("header_fill", "3B3835")
+    head_fill = PatternFill("solid", fgColor=hf) if hf else None
+    head_font = Font(name=font, size=size, bold=rule.get("header_bold", True),
+                     color=rule.get("header_font_color", "FFFFFF"))
     body_font = Font(name=font, size=size)
     title_font = Font(name=font, size=size, bold=True)
     bold_cols = {_norm(c) for c in rule.get("bold", [])}
@@ -692,7 +705,9 @@ def apply_style(ws, hr, rule):
 
     for i, h in enumerate(hdr, 1):
         c = ws.cell(hr, i)
-        c.font, c.fill = head_font, head_fill
+        c.font = head_font
+        if head_fill is not None:
+            c.fill = head_fill
         c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
         c.border = Border(left=thin, right=thin, top=thin, bottom=thin)
     ws.row_dimensions[hr].height = rule.get("header_height", 30)
@@ -721,6 +736,8 @@ def apply_style(ws, hr, rule):
                               top=day_side if (new_day and r > hr + 1) else thin)
             if fill is not None:
                 c.fill = fill
+            if isinstance(c.value, dt.time):
+                c.number_format = rule.get("time_format", "h:mm")
             if c.value is not None:
                 text = str(c.value)
                 chars = max(1.0, col_w[i - 1] * 1.2)    # Arial 10: ~1.2 символа на единицу ширины, с запасом
