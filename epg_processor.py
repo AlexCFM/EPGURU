@@ -532,7 +532,19 @@ def process_sheet(ws, tpl, ctx, log):
                     key = event_key(*ev)
                     ep = _num_cell(ws.cell(r, ecol[0]).value) if ecol else None
                     if ep is not None and ep != ev[1]:
-                        mismatch.add(f"«{label}»: в названии {ev[1]}, номер эпизода {ep}")
+                        ekey = event_key(ev[0], ep)
+                        if cat.lookup(ekey) and not cat.lookup(key):
+                            # номер в названии — опечатка: верный номер эпизода есть в каталоге
+                            rx = re.compile(rf"((?<![A-Za-z0-9]){re.escape(ev[0])}\s*[#№]?\s*){ev[1]}(?!\d)", re.I)
+                            for c in tcols + cols_for(hmap, rule.get("label", "")):
+                                cell = ws.cell(r, c)
+                                if isinstance(cell.value, str) and rx.search(cell.value):
+                                    fixed_t = rx.sub(lambda m: m.group(1) + str(ep), cell.value)
+                                    mismatch.add(f"«{cell.value.strip()}» → «{fixed_t.strip()}»")
+                                    cell.value = fixed_t
+                            key = ekey
+                        else:
+                            mismatch.add(f"проверь номер: «{label}»: в названии {ev[1]}, номер эпизода {ep}")
                     if cat.lookup(key):
                         found.add(key)
                     else:
@@ -544,7 +556,7 @@ def process_sheet(ws, tpl, ctx, log):
             for key, label in sorted(missing.items()):
                 log.append(f"   НЕТ В КАТАЛОГЕ: {key} — «{label}»")
             for m in sorted(mismatch):
-                log.append(f"   проверь номер: {m}")
+                log.append(f"   {m}" if m.startswith("проверь") else f"   номер исправлен по эпизоду: {m}")
 
         elif t == "fill_descriptions":
             cats = ([ctx["catalog"]] if ctx.get("catalog") else []) + [c for _, c in ctx.get("others", [])]
