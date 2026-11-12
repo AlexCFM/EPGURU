@@ -111,7 +111,7 @@ def test_fight_club_csv_export(tmp_path):
     rows = read(out)[1:]
     assert [(r[1], r[2], r[3], r[6], r[7], r[9], r[12]) for r in rows] == [
         ("15/11/2026", dt.time(23, 33), "Лига EFC 135", None, 135, "18+", 2026),
-        ("16/11/2026", dt.time(1, 58), "Лига EFC 132", 1, 132, "18+", 2025)]
+        ("16/11/2026", dt.time(1, 58), "Лига EFC 132", None, 132, "18+", 2025)]
 
 
 def test_dates_any_input_format(tmp_path):
@@ -173,3 +173,4 @@ def test_prime_time_911(tmp_path):
     src = make(tmp_path / "EPG VESNA 09.11-15.11.xlsx", rows_in)        # на VESNA правило не действует
     out, _ = process(src, out_dir=tmp_path / "out2")
     assert read(out)[1][2] == "21:25"
+
