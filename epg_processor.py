@@ -510,6 +510,18 @@ def process_sheet(ws, tpl, ctx, log):
                     fixed.append(f"{day} {tm:%H:%M}→{a:%H:%M}")
             log.append(f"[{ws.title}] прайм-тайм выровнен: {len(fixed)}" + (f" ({', '.join(fixed)})" if fixed else ""))
 
+        elif t == "clear_unless":
+            # очистить столбцы во всех строках, кроме тех, где key-столбец равен одному из значений
+            from catalog import norm_title
+            keep = {norm_title(v) for v in rule["values"]}
+            kc, n = cols_for(hmap, rule["key"]), 0
+            for col in cols_for(hmap, rule["columns"]):
+                for r in range(first, last + 1):
+                    c = ws.cell(r, col)
+                    if not _empty(c.value) and not (kc and norm_title(ws.cell(r, kc[0]).value) in keep):
+                        c.value, n = None, n + 1
+            log.append(f"[{ws.title}] очищено ({', '.join(rule['columns'])}): {n}")
+
         elif t == "catalog_presence":
             # только сверка: EPG не меняется, в лог — что есть в каталоге и чего нет
             from catalog import parse_event, event_key
