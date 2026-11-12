@@ -571,9 +571,13 @@ def process_sheet(ws, tpl, ctx, log):
 
         elif t == "clear_if_equal":
             tc, cc = cols_for(hmap, rule["target"]), cols_for(hmap, rule["compare_with"])
+            only = rule.get("only_if")                     # {"column": [...], "equals": "х/ф"}
+            oc = cols_for(hmap, only["column"]) if only else []
             n = 0
             if tc and cc:
                 for r in range(first, last + 1):
+                    if only and (not oc or str(ws.cell(r, oc[0]).value or "").strip() != only["equals"]):
+                        continue
                     a, b = ws.cell(r, tc[0]).value, ws.cell(r, cc[0]).value
                     if not _empty(a) and not _empty(b) and str(a).strip() == str(b).strip():
                         ws.cell(r, tc[0]).value, n = None, n + 1

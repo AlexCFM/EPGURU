@@ -257,3 +257,22 @@ def test_style_centered_no_freeze(tmp_path):
         for c in (1, 5, 14):
             a = ws.cell(r, c).alignment
             assert (a.horizontal, a.vertical, a.wrap_text) == ("center", "center", True)
+
+
+def test_episode_equal_title_only_for_films(tmp_path):
+    """Название серии = названию: у фильма очищается, у сериала остаётся."""
+    rows, _ = run_epg(tmp_path)
+    cdir = tmp_path / "cat2"
+    cdir.mkdir()
+    (cdir / "911.xlsx").write_bytes(SUSPENSE)
+    wb = openpyxl.Workbook()
+    for r in [EPG_HEAD,
+              [dt.datetime(2026, 11, 9), dt.time(10, 0), "Сило", "Сило", "Series", "16"],
+              [dt.datetime(2026, 11, 9), dt.time(12, 0), "Девушка в поезде", "Девушка в поезде", "Movie", "18"]]:
+        wb.active.append(r)
+    src = tmp_path / "EPG 9-1-1 09.11-15.11.xlsx"
+    wb.save(src)
+    out, _ = process(src, out_dir=tmp_path / "out2", catalog_dir=cdir)
+    got = list(openpyxl.load_workbook(out).active.iter_rows(min_row=2, values_only=True))
+    assert (got[0][3], got[0][8]) == ("сериал", "Сило")
+    assert (got[1][3], got[1][8]) == ("х/ф", None)
