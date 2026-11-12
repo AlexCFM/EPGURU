@@ -103,7 +103,8 @@ def detect_channel(filename: str, channels: list[dict]) -> tuple[str, str]:
 
 
 def detect_week(filename: str, channel_token: str) -> tuple[str, str, str, str]:
-    iso = re.findall(r"(20\d{2})[-_.](\d{2})[-_.](\d{2})", Path(filename).stem)
+    iso = re.findall(r"(20\d{2})[-_.](\d{2})[-_.](\d{2})", Path(filename).stem) or \
+        re.findall(r"(?<!\d)(20\d{2})(\d{2})(\d{2})(?!\d)", Path(filename).stem)     # 20261116-20261122
     if len(iso) >= 2:
         a = dt.date(*map(int, iso[0]))
         b = dt.date(*map(int, iso[1]))
@@ -122,7 +123,8 @@ def detect_week(filename: str, channel_token: str) -> tuple[str, str, str, str]:
 
 
 def year_from_filename(filename: str):
-    iso = re.findall(r"(20\d{2})[-_.]\d{2}[-_.]\d{2}", Path(filename).stem)
+    iso = re.findall(r"(20\d{2})[-_.]\d{2}[-_.]\d{2}", Path(filename).stem) or \
+        re.findall(r"(?<!\d)(20\d{2})\d{4}(?!\d)", Path(filename).stem)
     if iso:
         return int(iso[-1])
     m = re.search(r"(?<!\d)(20\d{2})(?!\d)", Path(filename).stem)

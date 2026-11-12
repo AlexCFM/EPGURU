@@ -5,7 +5,7 @@ output_name: "EPG_{channel}_{d1}_{m1}_{d2}_{m2}_processed.xlsx"
 versioning: true          # при повторной обработке: _v2, _v3...
 
 channels:
-  - match: ["FIGHT CLUB", "FIGHT_CLUB", "FIGHTCLUB"]
+  - match: ["FIGHT CLUB", "FIGHT_CLUB", "FIGHT-CLUB", "FIGHTCLUB"]
     code: FIGHT_CLUB
 
 header_anchors: ["Date", "Дата", "Start Time", "Время", "EPG_TITLE_RUS", "Название"]
