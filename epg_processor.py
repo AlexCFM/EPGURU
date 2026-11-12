@@ -520,7 +520,7 @@ def process_sheet(ws, tpl, ctx, log):
                 log.append(f"[{ws.title}] сверка с каталогом: каталог не загружен — пропущено")
                 continue
             leagues = getattr(cat, "leagues", None) or rule.get("leagues", [])
-            found, missing, other, mismatch = set(), {}, {}, set()
+            found, missing, mismatch = set(), {}, set()
             for r in range(first, last + 1):
                 vals = [ws.cell(r, c).value for c in tcols]
                 if all(_empty(v) for v in vals):
@@ -539,16 +539,12 @@ def process_sheet(ws, tpl, ctx, log):
                         missing.setdefault(key, label)
                 elif any(cat.lookup(v) for v in vals if not _empty(v)):
                     found.add(label)
-                else:
-                    other[label] = other.get(label, 0) + 1
             log.append(f"[{ws.title}] сверка с каталогом: найдено {len(found)}, "
-                       f"нет в каталоге {len(missing)}, не турниры {len(other)}")
+                       f"нет в каталоге {len(missing)}")
             for key, label in sorted(missing.items()):
                 log.append(f"   НЕТ В КАТАЛОГЕ: {key} — «{label}»")
             for m in sorted(mismatch):
                 log.append(f"   проверь номер: {m}")
-            if other:
-                log.append("   не номерные (нет в КОНТЕНТ): " + "; ".join(f"«{k}» ×{v}" for k, v in sorted(other.items())))
 
         elif t == "fill_descriptions":
             cats = ([ctx["catalog"]] if ctx.get("catalog") else []) + [c for _, c in ctx.get("others", [])]
