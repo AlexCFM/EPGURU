@@ -174,3 +174,17 @@ def test_prime_time_911(tmp_path):
     out, _ = process(src, out_dir=tmp_path / "out2")
     assert read(out)[1][2] == "21:25"
 
+
+
+def test_season_in_title():
+    import openpyxl
+    from epg_processor import process_sheet
+    wb = openpyxl.Workbook(); ws = wb.active
+    vals = ["Тайны Лауры (1 сезон)", "Гнев (2 сезон)", "Гнев (сезон 3)", "Дело, 2 сезон", "Гнев 2-й сезон", "(1 сезон)", "Гнев"]
+    ws.append(["Название (рус)", "Формат"])
+    for v in vals:
+        ws.append([v, "сериал"])
+    rules = [{"type": "season_in_title", "columns": ["Название (рус)"]}, {"type": "replace_exact", "columns": ["Формат"], "mapping": {}}]
+    process_sheet(ws, {"rules": rules}, {}, [])
+    assert [ws.cell(r, 1).value for r in range(2, 9)] == [
+        "Тайны Лауры", "Гнев 2", "Гнев 3", "Дело 2", "Гнев 2", "(1 сезон)", "Гнев"]

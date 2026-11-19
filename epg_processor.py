@@ -480,6 +480,23 @@ def process_sheet(ws, tpl, ctx, log):
                         c.value, n = None, n + 1
             log.append(f"[{ws.title}] очищено «пустых» названий серий: {n}")
 
+        elif t == "season_in_title":
+            # «Тайны Лауры (1 сезон)» → «Тайны Лауры»; «Гнев (2 сезон)» → «Гнев 2»
+            rx = re.compile(r"\s*[\(\[,]?\s*(?:(\d{1,2})\s*-?\s*(?:й|ый|ой)?\s*сезон|сезон\s*(\d{1,2}))\s*[\)\]]?\s*$", re.I)
+            n = 0
+            for col in cols_for(hmap, rule["columns"]):
+                for r in range(first, last + 1):
+                    c = ws.cell(r, col)
+                    if not isinstance(c.value, str):
+                        continue
+                    m = rx.search(c.value)
+                    if not m or not c.value[:m.start()].strip():
+                        continue
+                    num = int(m.group(1) or m.group(2))
+                    base = c.value[:m.start()].rstrip(" .,:-–—")
+                    c.value, n = (base if num == 1 else f"{base} {num}"), n + 1
+            log.append(f"[{ws.title}] сезон в названии: {n}")
+
         elif t == "prime_time":
             # Прайм в сутки один: время в пределах ±tolerance от якоря (21:30 или 22:00) ставится ровно на якорь.
             dcol, tcol = cols_for(hmap, rule["date"]), cols_for(hmap, rule["time"])

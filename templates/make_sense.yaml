@@ -84,6 +84,9 @@ rules:
     columns: ["Название эпизода", "Episode Name"]
     title: ["название (рус)", "Title Rus"]
 
+  - type: season_in_title            # «Тайны Лауры (1 сезон)» -> «Тайны Лауры», «Гнев (2 сезон)» -> «Гнев 2»
+    columns: ["Название (рус)", "Title Rus"]
+
   - type: clear_same_original        # «название (ориг)» = «название (рус)» -> ориг пустое
     target: ["название (ориг)"]
     compare_with: ["название (рус)"]
