@@ -99,9 +99,16 @@ rules:
   - type: age_rating                 # 12 -> 12+, 18 years -> 18+
     columns: ["Возрастное ограничение", "Маркер", "Age Restrict", "Age Rating", "Age"]
 
-  - type: clear_if_equal             # очистить эпизод, если совпадает с названием — и у фильмов, и у сериалов
+  - type: clear_if_equal             # фильм: эпизод = название -> пусто
     target: ["название эпизода", "Episode Name"]
     compare_with: ["название (рус)", "Title Rus"]
+    only_if: {column: ["формат"], equals: "х/ф"}
+
+  - type: clear_series_dup_episode   # сериал: если каждая серия в эпизоде дублирует название сериала — чистим
+    target: ["название эпизода", "Episode Name"]
+    title: ["название (рус)", "Title Rus"]
+    format: ["формат"]
+    equals: "сериал"
 
   # Оформление итогового файла — всегда последним
   - type: style

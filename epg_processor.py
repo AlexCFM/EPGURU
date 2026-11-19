@@ -497,6 +497,33 @@ def process_sheet(ws, tpl, ctx, log):
                     c.value, n = (base if num == 1 else f"{base} {num}"), n + 1
             log.append(f"[{ws.title}] сезон в названии: {n}")
 
+        elif t == "clear_series_dup_episode":
+            # у сериала каждая серия в «названии эпизода» дублирует название сериала → чистим у всех его серий
+            from catalog import norm_title
+            tc, ec, fc = cols_for(hmap, rule["title"]), cols_for(hmap, rule["target"]), cols_for(hmap, rule["format"])
+            if not (tc and ec and fc):
+                continue
+            groups = {}
+            for r in range(first, last + 1):
+                if str(ws.cell(r, fc[0]).value or "").strip() != rule.get("equals", "сериал"):
+                    continue
+                title, ep = ws.cell(r, tc[0]).value, ws.cell(r, ec[0]).value
+                if _empty(title) or _empty(ep):
+                    continue
+                g = groups.setdefault(norm_title(title), {"rows": [], "all": True, "name": str(title).strip()})
+                g["rows"].append(r)
+                from catalog import _strip_parens
+                same = lambda a, b: norm_title(a) == norm_title(b) or norm_title(_strip_parens(str(a))) == norm_title(_strip_parens(str(b)))
+                g["all"] &= same(ep, title)
+            n, names = 0, []
+            for g in groups.values():
+                if g["all"]:
+                    for r in g["rows"]:
+                        ws.cell(r, ec[0]).value, n = None, n + 1
+                    names.append(g["name"])
+            log.append(f"[{ws.title}] сериалы с названием эпизода = названию сериала, очищено: {n}"
+                       + (f" ({', '.join(sorted(names))})" if names else ""))
+
         elif t == "prime_time":
             # Прайм в сутки один: время в пределах ±tolerance от якоря (21:30 или 22:00) ставится ровно на якорь.
             dcol, tcol = cols_for(hmap, rule["date"]), cols_for(hmap, rule["time"])

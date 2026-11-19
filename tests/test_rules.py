@@ -188,3 +188,16 @@ def test_season_in_title():
     process_sheet(ws, {"rules": rules}, {}, [])
     assert [ws.cell(r, 1).value for r in range(2, 9)] == [
         "Тайны Лауры", "Гнев 2", "Гнев 3", "Дело 2", "Гнев 2", "(1 сезон)", "Гнев"]
+
+
+def test_clear_series_dup_episode():
+    import openpyxl
+    from epg_processor import process_sheet
+    wb = openpyxl.Workbook(); ws = wb.active
+    ws.append(["Название (рус)", "Формат", "Название эпизода"])
+    ws.append(["Бешенство", "сериал", "Бешенство"]); ws.append(["Бешенство", "сериал", "бешенство "])
+    ws.append(["Дело", "сериал", "Дело"]); ws.append(["Дело", "сериал", "Свидетель"])
+    rules = [{"type": "clear_series_dup_episode", "target": ["Название эпизода"], "title": ["Название (рус)"],
+              "format": ["Формат"], "equals": "сериал"}]
+    process_sheet(ws, {"rules": rules}, {}, [])
+    assert [ws.cell(r, 3).value for r in range(2, 6)] == [None, None, "Дело", "Свидетель"]
