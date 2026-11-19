@@ -292,3 +292,11 @@ def test_blocks_catalog_and_parse_event(tmp_path):
         assert cat.lookup(event_key(*parse_event(text, cat.leagues))), text
     assert parse_event("Лига EFC. Лучшие моменты", cat.leagues) is None
     assert parse_event("Enfusion / 8TKO 25", ["ENFUSION", "8TKO"]) == ("8TKO", 25)
+
+
+def test_bare_ep_codes():
+    from catalog import is_bare_episode
+    for v in ["EP1", "EP15", "EP154", "ep 7"]:
+        assert is_bare_episode(v), v
+    for v in ["Слово и огонь. EP1", "EP1. Слово и огонь", "EPIC"]:
+        assert not is_bare_episode(v), v

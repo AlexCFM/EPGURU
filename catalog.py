@@ -289,20 +289,20 @@ _ORD = (r"перв|втор|трет|четверт|пят|шест|седьм|�
         r"четырнадцат|пятнадцат|шестнадцат|семнадцат|восемнадцат|девятнадцат|двадцат|последн|заключительн|финальн")
 _ORD_WORD = rf"(?:{_ORD})(?:ая|ый|ой|ий|ья|ье|ое|ей)"
 _JUNK = re.compile(
-    rf"\b(?:серия|серии|эпизод|эпизода|episode|ep|season|сезон|часть|part|s\d+e\d+|{_ORD_WORD}|"
+    rf"\b(?:серия|серии|эпизод|эпизода|episode|ep\.?\s*\d*|season|сезон|часть|part|s\d+e\d+|{_ORD_WORD}|"
     r"\d+(?:-?(?:я|й|ая|ый|ой))?)\b|№",
     re.IGNORECASE)
 
 
 def is_bare_episode(value) -> bool:
     """«1 серия», «Серия 2», «Эпизод 3», «Сезон 1. Серия 4», «S01E05» — да.
-    «Эпизод 3. Татьяна» — нет (после номера есть название)."""
+    «EP1», «EP154» — да. «Эпизод 3. Татьяна», «Слово и огонь. EP1» — нет (есть название)."""
     if value is None:
         return False
     s = str(value).strip()
     if not s or not (re.search(r"\d", s) or re.search(rf"(?i)\b{_ORD_WORD}\b", s)):
         return False
-    if not re.search(r"(?i)серия|серии|эпизод|episode|\bep\b|часть|part|s\d+e\d+", s):
+    if not re.search(r"(?i)серия|серии|эпизод|episode|\bep\b|\bep\.?\s*\d|часть|part|s\d+e\d+", s):
         return False
     rest = _JUNK.sub(" ", s)
     return not re.search(r"\w", rest)
