@@ -274,7 +274,7 @@ def test_episode_equal_title_only_for_films(tmp_path):
     wb.save(src)
     out, _ = process(src, out_dir=tmp_path / "out2", catalog_dir=cdir)
     got = list(openpyxl.load_workbook(out).active.iter_rows(min_row=2, values_only=True))
-    assert (got[0][3], got[0][8]) == ("сериал", "Сило")
+    assert (got[0][3], got[0][8]) == ("сериал", None)
     assert (got[1][3], got[1][8]) == ("х/ф", None)
 
 

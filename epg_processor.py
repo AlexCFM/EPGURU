@@ -661,7 +661,8 @@ def process_sheet(ws, tpl, ctx, log):
                     if only and (not oc or str(ws.cell(r, oc[0]).value or "").strip() != only["equals"]):
                         continue
                     a, b = ws.cell(r, tc[0]).value, ws.cell(r, cc[0]).value
-                    if not _empty(a) and not _empty(b) and str(a).strip() == str(b).strip():
+                    from catalog import norm_title
+                    if not _empty(a) and not _empty(b) and norm_title(a) == norm_title(b):
                         ws.cell(r, tc[0]).value, n = None, n + 1
             log.append(f"[{ws.title}] очищено эпизодов: {n}")
 
