@@ -95,6 +95,7 @@ rules:
     format: ["формат"]
     film_value: "х/ф"
     columns: ["сезон", "номер серии", "название эпизода"]
+    parts: {title: ["название (рус)"], episode: ["номер серии"]}   # фильм из 2–4 серий: номер серии остаётся
 
   - type: age_rating                 # 12 -> 12+, 18 years -> 18+
     columns: ["Возрастное ограничение", "Маркер", "Age Restrict", "Age Rating", "Age"]

@@ -201,3 +201,20 @@ def test_clear_series_dup_episode():
               "format": ["Формат"], "equals": "сериал"}]
     process_sheet(ws, {"rules": rules}, {}, [])
     assert [ws.cell(r, 3).value for r in range(2, 6)] == [None, None, "Дело", "Свидетель"]
+
+
+def test_multipart_film_numbering():
+    import openpyxl
+    from epg_processor import process_sheet
+    wb = openpyxl.Workbook(); ws = wb.active
+    ws.append(["Название (рус)", "Формат", "Сезон", "Номер серии", "Название эпизода"])
+    ws.append(["Диван", "х/ф", 1, None, None]); ws.append(["Диван", "х/ф", 1, None, None])   # подряд, без номеров
+    ws.append(["Фильм", "х/ф", 1, 1, "Фильм"])
+    ws.append(["Двухсерийный", "х/ф", 1, 1, "1 серия"]); ws.append(["Двухсерийный", "х/ф", 1, 2, "2 серия"])
+    ws.append(["Фильм", "х/ф", 1, 1, "Фильм"])
+    rules = [{"type": "film_clear_episode", "format": ["Формат"], "film_value": "х/ф",
+              "columns": ["Сезон", "Номер серии", "Название эпизода"],
+              "parts": {"title": ["Название (рус)"], "episode": ["Номер серии"]}}]
+    process_sheet(ws, {"rules": rules}, {}, [])
+    assert [ws.cell(r, 4).value for r in range(2, 8)] == [1, 2, None, 1, 2, None]
+    assert all(ws.cell(r, 3).value is None and ws.cell(r, 5).value is None for r in range(2, 8))

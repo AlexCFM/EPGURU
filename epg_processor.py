@@ -663,16 +663,63 @@ def process_sheet(ws, tpl, ctx, log):
         elif t == "film_clear_episode":
             fcol = cols_for(hmap, rule["format"])
             clear = cols_for(hmap, rule["columns"])
+            film = rule.get("film_value", "х/ф")
+            # многосерийный фильм (2–4 серии): номер серии сохраняем / проставляем
+            parts = rule.get("parts")                       # {"title": [...], "episode": [...]}
+            pt = cols_for(hmap, parts["title"]) if parts else []
+            pe = cols_for(hmap, parts["episode"]) if parts else []
+            keep_rows, multi, sus = {}, [], []
+            if fcol and pt and pe:
+                from catalog import norm_title
+                rows = [r for r in range(first, last + 1)
+                        if str(ws.cell(r, fcol[0]).value or "").strip() == film and not _empty(ws.cell(r, pt[0]).value)]
+                by_title = {}
+                for r in rows:
+                    by_title.setdefault(norm_title(ws.cell(r, pt[0]).value), []).append(r)
+                for key, rs in by_title.items():
+                    nums = [_num_cell(ws.cell(r, pe[0]).value) for r in rs]
+                    top = max((x or 0) for x in nums)
+                    if top > parts.get("max_parts", 4):     # больше 4 серий — это не фильм: не нумеруем, сообщаем
+                        sus.append(str(ws.cell(rs[0], pt[0]).value).strip())
+                        continue
+                    if top > 1:                              # в выгрузке уже есть номера частей
+                        for r, x in zip(rs, nums):
+                            if x:
+                                keep_rows[r] = x
+                        multi.append(str(ws.cell(rs[0], pt[0]).value).strip())
+                        continue
+                    # номеров нет: части идут подряд, одна за другой — нумеруем внутри блока
+                    blocks, cur = [], [rs[0]]
+                    for a, b in zip(rs, rs[1:]):
+                        nxt = a + 1
+                        while nxt < b and all(_empty(ws.cell(nxt, c).value) for c in pt):
+                            nxt += 1
+                        if nxt == b:
+                            cur.append(b)
+                        else:
+                            blocks.append(cur); cur = [b]
+                    blocks.append(cur)
+                    if any(1 < len(bl) <= parts.get("max_parts", 4) for bl in blocks):
+                        for bl in blocks:
+                            for i, r in enumerate(bl, 1):
+                                keep_rows[r] = i
+                        multi.append(str(ws.cell(rs[0], pt[0]).value).strip())
             n = 0
             if fcol:
                 for r in range(first, last + 1):
-                    if str(ws.cell(r, fcol[0]).value or "").strip() == rule.get("film_value", "х/ф"):
+                    if str(ws.cell(r, fcol[0]).value or "").strip() == film:
                         hit = False
                         for c in clear:
                             if not _empty(ws.cell(r, c).value):
                                 ws.cell(r, c).value, hit = None, True
                         n += hit
+                        if r in keep_rows:
+                            ws.cell(r, pe[0]).value = keep_rows[r]
             log.append(f"[{ws.title}] у фильмов очищены сезон/серия/название серии: {n}")
+            if multi:
+                log.append(f"[{ws.title}] многосерийные фильмы, серии пронумерованы: {', '.join(sorted(set(multi)))}")
+            if sus:
+                log.append(f"[{ws.title}] х/ф, но серий больше 4 — похоже на сериал, проверь каталог: {', '.join(sorted(set(sus)))}")
 
         elif t == "style":
             apply_style(ws, hr, rule)
